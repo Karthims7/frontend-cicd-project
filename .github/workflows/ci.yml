@@ -75,11 +75,9 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v4
+      - name: Validate Kubernetes Manifests with Kubeconform
+        uses: yannh/kubeconform-action@v0.3.2
         with:
-          version: 'v1.30.0'
-
-      - name: Dry-Run Client Validation
-        run: |
-          kubectl apply --dry-run=client -f k8s/
+          files: 'k8s/*.yaml'
+          kubernetes_version: '1.30.0'
+          summary: true
