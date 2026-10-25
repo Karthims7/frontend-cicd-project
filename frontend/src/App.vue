@@ -3,7 +3,11 @@
     <!-- Header -->
     <header class="studio-header">
       <div class="studio-brand">
-        <span class="clapper-icon">🎬</span>
+        <div class="clapper-icon">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="#f4c524">
+            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 2 1.5 3H17l-1.5-3H18zm-4.5 0 1.5 3H12.5L11 6h2.5zM9 6l1.5 3H8L6.5 6H9zm-5 5h16v7H4v-7z"/>
+          </svg>
+        </div>
         <div>
           <h1 class="brand-title">CollabCut</h1>
           <p class="brand-tagline">Film Review & Script Subtitle Suite</p>
@@ -11,11 +15,18 @@
       </div>
       <div class="header-actions">
         <span class="clip-count-badge">{{ assets.length }} Clips</span>
-        <button class="btn-refresh" :disabled="loading" @click="fetchAll" title="Reload footage">
-          <span :class="{ 'spin': loading }">🔄</span>
+        <button class="btn-refresh" :disabled="loading" @click="fetchAll" title="Reload footage list">
+          <svg class="btn-icon" :class="{ 'spin': loading }" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span>Reload</span>
         </button>
         <button class="btn-primary" @click="showUploadModal = true">
-          + Add New Clip
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>Add New Clip</span>
         </button>
       </div>
     </header>
@@ -37,7 +48,9 @@
             <span class="count-pill">{{ filteredAssets.length }}</span>
           </div>
           <div class="search-box">
-            <span class="search-icon">🔍</span>
+            <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#f4c524" stroke-width="2.5" stroke-linecap="round">
+              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+            </svg>
             <input 
               v-model="searchQuery" 
               type="text" 
@@ -69,7 +82,7 @@
             </div>
 
             <div class="clip-card-footer">
-              <span class="clip-meta">⏱️ {{ formatSeconds(asset.durationSeconds) }} • {{ (asset.comments || []).length }} notes</span>
+              <span class="clip-meta">{{ formatSeconds(asset.durationSeconds) }} • {{ (asset.comments || []).length }} notes</span>
               
               <div class="clip-actions" @click.stop>
                 <button 
@@ -78,7 +91,10 @@
                   @click="triggerBurnIn(asset)"
                   title="Burn screenplay subtitles into video proxy"
                 >
-                  ⚡ Burn Subtitles
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor">
+                    <path d="m13 2-8 12h6l-2 8 10-13h-6l2-7z"/>
+                  </svg>
+                  <span>Burn Subtitles</span>
                 </button>
                 <button 
                   v-else-if="asset.status === 'READY_FOR_REVIEW'" 
@@ -86,14 +102,19 @@
                   @click="updateStatus(asset, 'APPROVED')"
                   title="Mark as Picture Locked"
                 >
-                  🔒 Lock Cut
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                  </svg>
+                  <span>Lock Cut</span>
                 </button>
                 <button 
                   class="btn-delete-clip" 
                   @click="deleteAsset(asset.id, asset.title)" 
                   title="Delete Clip"
                 >
-                  🗑️
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                  </svg>
                 </button>
               </div>
             </div>
@@ -123,7 +144,6 @@
 
             <!-- Cinematic Stage -->
             <div class="player-screen">
-              <div class="film-grid-cross"></div>
               <div class="cinema-heading">
                 <h3>{{ selectedAsset.title }}</h3>
                 <p>{{ selectedAsset.cameraRoll }} • 24 FPS • 1080p</p>
@@ -132,7 +152,7 @@
               <!-- Screenplay Dialogue Subtitle Overlay -->
               <div class="dialogue-overlay" :class="{ 'burned': selectedAsset.processedS3Url }">
                 <span class="sub-label">
-                  {{ selectedAsset.processedS3Url ? '⚡ BURNED-IN SUBTITLE' : 'ORIGINAL SCREENPLAY' }}
+                  {{ selectedAsset.processedS3Url ? 'BURNED-IN SUBTITLE' : 'ORIGINAL SCREENPLAY' }}
                 </span>
                 <p class="sub-text">"{{ selectedAsset.scriptDialogue || 'No screenplay dialogue assigned.' }}"</p>
               </div>
@@ -140,9 +160,24 @@
 
             <!-- Player Controls -->
             <div class="player-controls">
-              <button class="btn-play-toggle" @click="togglePlay">
-                {{ isPlaying ? '⏸️ Pause' : '▶️ Play' }}
+              <!-- Tactile Hardware Play/Pause Button -->
+              <button 
+                class="btn-play-toggle" 
+                :class="{ 'is-playing': isPlaying }" 
+                @click="togglePlay"
+                :title="isPlaying ? 'Pause Video' : 'Play Video'"
+              >
+                <!-- Play Icon SVG -->
+                <svg v-if="!isPlaying" class="transport-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M8 5v14l11-7z"/>
+                </svg>
+                <!-- Pause Icon SVG -->
+                <svg v-else class="transport-icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span>{{ isPlaying ? 'Pause' : 'Play' }}</span>
               </button>
+
               <input 
                 type="range" 
                 min="0" 
@@ -166,7 +201,10 @@
             <!-- Inline Add Note Form -->
             <form class="inline-note-form" @submit.prevent="submitInlineNote">
               <div class="note-time-badge">
-                ⏱️ {{ formattedCurrentTimecode }}
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <span>{{ formattedCurrentTimecode }}</span>
               </div>
               <select v-model="quickDept" class="dept-select">
                 <option value="EDITORIAL">Director / Editorial</option>
@@ -182,7 +220,7 @@
                 required
               />
               <button type="submit" class="btn-post-note" :disabled="submitting || !quickNoteText.trim()">
-                {{ submitting ? 'Adding...' : 'Post Note' }}
+                <span>{{ submitting ? 'Adding...' : 'Post Note' }}</span>
               </button>
             </form>
 
@@ -213,7 +251,7 @@
               </div>
 
               <div v-if="!selectedAsset.comments || selectedAsset.comments.length === 0" class="no-notes">
-                <span>💬 No notes for this clip yet. Play the video and post a note above!</span>
+                <span>No notes for this clip yet. Play the video and post a note above.</span>
               </div>
             </div>
           </div>
@@ -222,7 +260,11 @@
 
         <!-- No Selection Placeholder -->
         <div v-else class="empty-selection">
-          <span class="large-icon">🎬</span>
+          <div class="clapper-empty-icon">
+            <svg viewBox="0 0 24 24" width="56" height="56" fill="#f4c524">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 2 1.5 3H17l-1.5-3H18zm-4.5 0 1.5 3H12.5L11 6h2.5zM9 6l1.5 3H8L6.5 6H9zm-5 5h16v7H4v-7z"/>
+            </svg>
+          </div>
           <h3>Select a Clip to Review</h3>
           <p>Choose any film take from the left to watch, inspect subtitles, or add feedback.</p>
         </div>
@@ -384,7 +426,7 @@ async function triggerBurnIn(asset) {
   try {
     const res = await fetch(`/api/assets/${asset.id}/burn-in`, { method: 'POST' });
     if (!res.ok) throw new Error(`Burn-in failed`);
-    showToast(`⚡ Subtitles burned onto ${asset.sceneId}! Ready to review.`, 'success');
+    showToast(`Subtitles burned onto ${asset.sceneId}! Ready to review.`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -399,7 +441,7 @@ async function updateStatus(asset, newStatus) {
       body: JSON.stringify({ status: newStatus })
     });
     if (!res.ok) throw new Error(`Update status failed`);
-    showToast(`🔒 ${asset.sceneId} locked for final cut!`, 'success');
+    showToast(`${asset.sceneId} locked for final cut!`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -553,12 +595,14 @@ onUnmounted(() => {
 }
 
 .clapper-icon {
-  font-size: 2.2rem;
   background: #000000;
   border: 1px solid #f4c524;
   border-radius: 8px;
-  padding: 0.3rem 0.5rem;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.2);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 15px rgba(244, 197, 36, 0.25);
 }
 
 .brand-title {
@@ -585,50 +629,75 @@ onUnmounted(() => {
   background: #000000;
   border: 1px solid rgba(244, 197, 36, 0.3);
   color: #f4c524;
-  padding: 0.4rem 0.8rem;
+  padding: 0.45rem 0.85rem;
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 700;
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* Tactile Brand Button: Reload Footage */
 .btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   background: #000000;
-  border: 1px solid rgba(244, 197, 36, 0.3);
+  border: 1.5px solid #f4c524;
   color: #f4c524;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 1rem;
   border-radius: 6px;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: all 0.2s;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: inset 0 1px 0 rgba(244, 197, 36, 0.2), 0 2px 5px rgba(0, 0, 0, 0.8);
 }
-.btn-refresh:hover {
-  border-color: #f4c524;
-  box-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
-}
-
-.btn-primary {
+.btn-refresh:hover:not(:disabled) {
   background: #f4c524;
   color: #000000;
-  border: 1px solid #f4c524;
+  box-shadow: 0 0 15px rgba(244, 197, 36, 0.4);
+}
+.btn-refresh:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn-refresh:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: #f4c524;
+  color: #000000;
+  border: 1.5px solid #f4c524;
   padding: 0.55rem 1.25rem;
   border-radius: 6px;
   font-weight: 800;
   font-size: 0.9rem;
   cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8), 0 0 15px rgba(244, 197, 36, 0.25);
 }
 .btn-primary:hover {
   background: #000000;
   color: #f4c524;
 }
-
-.spin {
-  animation: spin 1s linear infinite;
-  display: inline-block;
+.btn-primary:active {
+  transform: translateY(1px);
 }
-@keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* Toast */
 .studio-toast {
@@ -636,14 +705,14 @@ onUnmounted(() => {
   top: 1.5rem;
   right: 1.5rem;
   background: #000000;
-  border: 1px solid #f4c524;
+  border: 1.5px solid #f4c524;
   color: #f4c524;
   padding: 0.85rem 1.25rem;
   border-radius: 8px;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 0.9rem;
   z-index: 200;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(244, 197, 36, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(244, 197, 36, 0.35);
 }
 
 /* Studio Grid Layout */
@@ -712,8 +781,6 @@ onUnmounted(() => {
 .search-icon {
   position: absolute;
   left: 0.75rem;
-  font-size: 0.8rem;
-  opacity: 0.6;
 }
 
 .search-box input {
@@ -843,6 +910,9 @@ onUnmounted(() => {
 }
 
 .btn-burn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   background: #f4c524;
   color: #000000;
   border: 1px solid #f4c524;
@@ -859,6 +929,9 @@ onUnmounted(() => {
 }
 
 .btn-lock-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   background: #000000;
   color: #f4c524;
   border: 1px solid #f4c524;
@@ -879,7 +952,10 @@ onUnmounted(() => {
   border: none;
   color: #737373;
   cursor: pointer;
-  font-size: 0.85rem;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  transition: color 0.2s;
 }
 .btn-delete-clip:hover {
   color: #ffffff;
@@ -1015,37 +1091,63 @@ onUnmounted(() => {
 .player-controls {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.25rem;
   padding: 0.85rem 1.25rem;
   background: #050505;
 }
 
+/* Tactile Hardware Play/Pause Button */
 .btn-play-toggle {
-  background: #000000;
-  border: 1px solid #f4c524;
-  color: #f4c524;
-  font-weight: 800;
-  font-size: 0.8rem;
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-.btn-play-toggle:hover {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   background: #f4c524;
   color: #000000;
+  border: 1.5px solid #f4c524;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+.btn-play-toggle:hover {
+  background: #000000;
+  color: #f4c524;
+  box-shadow: 0 0 15px rgba(244, 197, 36, 0.35);
+}
+.btn-play-toggle:active {
+  transform: translateY(1px);
+}
+.btn-play-toggle.is-playing {
+  background: #000000;
+  color: #f4c524;
+  border-color: #f4c524;
+  box-shadow: 0 0 12px rgba(244, 197, 36, 0.3);
+}
+.btn-play-toggle.is-playing:hover {
+  background: #f4c524;
+  color: #000000;
+}
+
+.transport-icon {
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .cinema-scrubber {
   flex: 1;
   accent-color: #f4c524;
   cursor: pointer;
+  height: 6px;
 }
 
 .time-readout {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: #a3a3a3;
   white-space: nowrap;
 }
@@ -1083,10 +1185,13 @@ onUnmounted(() => {
 }
 
 .note-time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   background: #111111;
   border: 1px solid #f4c524;
   color: #f4c524;
-  padding: 0.4rem 0.65rem;
+  padding: 0.45rem 0.75rem;
   border-radius: 6px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
@@ -1098,7 +1203,7 @@ onUnmounted(() => {
   background: #111111;
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #ffffff;
-  padding: 0.45rem 0.65rem;
+  padding: 0.5rem 0.75rem;
   border-radius: 6px;
   font-size: 0.8rem;
   font-weight: 600;
@@ -1111,7 +1216,7 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   color: #ffffff;
-  padding: 0.45rem 0.5rem;
+  padding: 0.5rem 0.5rem;
   font-size: 0.9rem;
   outline: none;
 }
@@ -1119,14 +1224,15 @@ onUnmounted(() => {
 .btn-post-note {
   background: #f4c524;
   color: #000000;
-  border: 1px solid #f4c524;
-  padding: 0.45rem 1.1rem;
+  border: 1.5px solid #f4c524;
+  padding: 0.5rem 1.25rem;
   border-radius: 6px;
   font-weight: 800;
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
 }
 .btn-post-note:hover:not(:disabled) {
   background: #000000;
@@ -1170,7 +1276,7 @@ onUnmounted(() => {
   font-size: 0.85rem;
   white-space: nowrap;
   background: #111111;
-  padding: 0.2rem 0.5rem;
+  padding: 0.25rem 0.55rem;
   border-radius: 4px;
 }
 
@@ -1210,6 +1316,7 @@ onUnmounted(() => {
   color: #737373;
   cursor: pointer;
   padding: 0.2rem;
+  font-size: 0.85rem;
 }
 .btn-del-note:hover {
   color: #ffffff;
@@ -1229,10 +1336,10 @@ onUnmounted(() => {
   padding: 4rem 2rem;
   color: #737373;
 }
-.large-icon {
-  font-size: 3.5rem;
-  display: block;
-  margin-bottom: 1rem;
+.clapper-empty-icon {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.25rem;
 }
 
 /* Modal */
@@ -1250,7 +1357,7 @@ onUnmounted(() => {
 
 .modal-card {
   background: #0a0a0a;
-  border: 1px solid #f4c524;
+  border: 1.5px solid #f4c524;
   border-radius: 12px;
   width: 100%;
   max-width: 500px;
