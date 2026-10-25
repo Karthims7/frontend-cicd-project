@@ -27,7 +27,7 @@ jobs:
         run: |
           echo "Scanning repository for unencrypted secrets and private tokens..."
           # Ensure no private keys or hardcoded passwords exist in codebase
-          if grep -rn "BEGIN RSA PRIVATE KEY" . --exclude-dir={.git,target,node_modules}; then
+          if grep -rn "BEGIN RSA PRIVATE KEY" . --exclude-dir={.git,.github,target,node_modules}; then
             echo "::error::Private key detected in codebase!"
             exit 1
           fi
