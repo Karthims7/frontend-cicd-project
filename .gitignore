@@ -1,0 +1,15 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build & Dependencies
+target/
+node_modules/
+dist/
+build/
+*.log
+
+# IDEs
+.idea/
+.vscode/
+*.iml
