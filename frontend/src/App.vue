@@ -4,8 +4,9 @@
     <header class="studio-header">
       <div class="studio-brand">
         <div class="clapper-icon">
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="#f4c524">
-            <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 2 1.5 3H17l-1.5-3H18zm-4.5 0 1.5 3H12.5L11 6h2.5zM9 6l1.5 3H8L6.5 6H9zm-5 5h16v7H4v-7z"/>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="5" fill="#000000" stroke="#f4c524" stroke-width="2"/>
+            <polygon points="9.5,7 17.5,12 9.5,17" fill="#f4c524"/>
           </svg>
         </div>
         <div>
@@ -261,8 +262,9 @@
         <!-- No Selection Placeholder -->
         <div v-else class="empty-selection">
           <div class="clapper-empty-icon">
-            <svg viewBox="0 0 24 24" width="56" height="56" fill="#f4c524">
-              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2 2 1.5 3H17l-1.5-3H18zm-4.5 0 1.5 3H12.5L11 6h2.5zM9 6l1.5 3H8L6.5 6H9zm-5 5h16v7H4v-7z"/>
+            <svg viewBox="0 0 24 24" width="56" height="56" fill="none">
+              <rect x="2" y="2" width="20" height="20" rx="5" fill="#000000" stroke="#f4c524" stroke-width="1.8"/>
+              <polygon points="9.5,7 17.5,12 9.5,17" fill="#f4c524"/>
             </svg>
           </div>
           <h3>Select a Clip to Review</h3>
