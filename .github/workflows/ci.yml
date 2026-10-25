@@ -75,9 +75,11 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Validate Kubernetes Manifests with Kubeconform
-        uses: yannh/kubeconform-action@v0.3.2
-        with:
-          files: 'k8s/*.yaml'
-          kubernetes_version: '1.30.0'
-          summary: true
+      - name: Install Kubeconform
+        run: |
+          curl -sL https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Validate Manifests
+        run: |
+          kubeconform -summary -kubernetes-version 1.30.0 k8s/*.yaml
