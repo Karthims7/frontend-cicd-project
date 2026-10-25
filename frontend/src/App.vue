@@ -1,181 +1,142 @@
 <template>
-  <div class="studio-workstation">
-    <!-- Top Broadcast Console Header -->
-    <header class="console-header">
-      <div class="console-brand-cluster">
-        <div class="hardware-logo">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
-            <rect x="2" y="2" width="20" height="20" rx="3" fill="#000000" stroke="#f4c524" stroke-width="2"/>
-            <polygon points="9,6 18,12 9,18" fill="#f4c524"/>
+  <div class="studio-app">
+    <!-- Clean Minimalist Header (Linear / Apple TV+ aesthetic) -->
+    <header class="app-header">
+      <div class="brand-group">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="#f4c524" />
+            <polygon points="10,7 17,12 10,17" fill="#000000" />
           </svg>
         </div>
-        <div class="brand-text-block">
-          <div class="brand-line">
-            <span class="brand-name">COLLABCUT</span>
-            <span class="brand-model">NLE PRO // v2.4</span>
-            <span class="system-status-pill">
-              <span class="status-pulse"></span>
-              <span>ENGINE READY</span>
-            </span>
-          </div>
-          <div class="telemetry-bar">
-            <span>PROJECT: <em>CHRONICLES OF DAWN</em></span>
-            <span class="sep">/</span>
-            <span>COLOR: ACEScc 1.3</span>
-            <span class="sep">/</span>
-            <span>TIMEBASE: 24.000 FPS</span>
-            <span class="sep">/</span>
-            <span>CLUSTER: MINIKUBE K8S</span>
-          </div>
+        <div class="brand-titles">
+          <span class="brand-name">CollabCut</span>
+          <span class="brand-badge">STUDIO</span>
         </div>
       </div>
 
-      <div class="console-actions-cluster">
-        <div class="telemetry-stat">
-          <span class="stat-num">{{ assets.length }}</span>
-          <span class="stat-label">INGESTED TAKES</span>
-        </div>
-        <button class="tactile-btn tactile-sync" :disabled="loading" @click="fetchAll" title="Sync Reel Metadata">
-          <svg class="sync-icon" :class="{ 'spin': loading }" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+      <div class="header-actions">
+        <span class="take-counter">{{ assets.length }} Takes</span>
+        <button class="btn-ghost" :disabled="loading" @click="fetchAll" title="Refresh takes">
+          <svg :class="{ 'spin': loading }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M21 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
           </svg>
-          <span>SYNC REEL</span>
+          <span>Refresh</span>
         </button>
-        <button class="tactile-btn tactile-primary" @click="showUploadModal = true">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+        <button class="btn-gold" @click="showUploadModal = true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
           </svg>
-          <span>INGEST TAKE</span>
+          <span>New Take</span>
         </button>
       </div>
     </header>
 
-    <!-- System Toast Message -->
-    <transition name="fade">
-      <div v-if="toast.show" class="hardware-toast" :class="toast.type">
-        <span class="toast-indicator">▶</span>
+    <!-- Toast Notification -->
+    <transition name="toast">
+      <div v-if="toast.show" class="app-toast">
+        <span class="toast-dot"></span>
         <span>{{ toast.message }}</span>
       </div>
     </transition>
 
-    <!-- Main Dual-Deck Workspace -->
-    <main class="console-body">
-      <!-- Left: Master Ingest Media Pool -->
-      <aside class="media-pool-deck">
-        <div class="deck-header">
-          <div class="deck-title-row">
-            <div class="deck-title">MEDIA POOL // FOOTAGE BINS</div>
-            <div class="filter-pills">
-              <button 
-                class="filter-pill" 
-                :class="{ 'active': activeFilter === 'ALL' }" 
-                @click="activeFilter = 'ALL'"
-              >
-                ALL ({{ assets.length }})
-              </button>
-              <button 
-                class="filter-pill" 
-                :class="{ 'active': activeFilter === 'UPLOADED' }" 
-                @click="activeFilter = 'UPLOADED'"
-              >
-                RAW ({{ countStatus('UPLOADED') }})
-              </button>
-              <button 
-                class="filter-pill" 
-                :class="{ 'active': activeFilter === 'READY_FOR_REVIEW' }" 
-                @click="activeFilter = 'READY_FOR_REVIEW'"
-              >
-                READY ({{ countStatus('READY_FOR_REVIEW') }})
-              </button>
-              <button 
-                class="filter-pill" 
-                :class="{ 'active': activeFilter === 'APPROVED' }" 
-                @click="activeFilter = 'APPROVED'"
-              >
-                LOCK ({{ countStatus('APPROVED') }})
-              </button>
-            </div>
-          </div>
-
-          <div class="bin-search-bar">
-            <span class="search-prefix">CMD:</span>
+    <!-- Main Studio Content -->
+    <main class="app-layout">
+      <!-- Left: Take Bin Sidebar -->
+      <aside class="sidebar-bin">
+        <div class="sidebar-header">
+          <div class="sidebar-search">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+            </svg>
             <input 
               v-model="searchQuery" 
               type="text" 
-              placeholder="Search Scene, Take, Roll or Dialogue line..." 
+              placeholder="Search takes, scenes, dialogue..." 
             />
-            <button v-if="searchQuery" class="clear-btn" @click="searchQuery = ''">✕</button>
+            <button v-if="searchQuery" class="clear-search-btn" @click="searchQuery = ''">✕</button>
+          </div>
+
+          <!-- Quick Filters -->
+          <div class="filter-row">
+            <button 
+              class="filter-tag" 
+              :class="{ 'active': activeFilter === 'ALL' }" 
+              @click="activeFilter = 'ALL'"
+            >
+              All ({{ assets.length }})
+            </button>
+            <button 
+              class="filter-tag" 
+              :class="{ 'active': activeFilter === 'UPLOADED' }" 
+              @click="activeFilter = 'UPLOADED'"
+            >
+              Needs Subtitles
+            </button>
+            <button 
+              class="filter-tag" 
+              :class="{ 'active': activeFilter === 'READY_FOR_REVIEW' }" 
+              @click="activeFilter = 'READY_FOR_REVIEW'"
+            >
+              Ready
+            </button>
+            <button 
+              class="filter-tag" 
+              :class="{ 'active': activeFilter === 'APPROVED' }" 
+              @click="activeFilter = 'APPROVED'"
+            >
+              Locked
+            </button>
           </div>
         </div>
 
-        <!-- Clips Feed -->
-        <div class="bins-scroll-area">
+        <!-- Take Cards List -->
+        <div class="takes-list">
           <div 
             v-for="asset in filteredAssets" 
             :key="asset.id"
-            class="slate-card"
-            :class="{ 'slate-selected': selectedAsset && selectedAsset.id === asset.id }"
+            class="take-card"
+            :class="{ 'selected': selectedAsset && selectedAsset.id === asset.id }"
             @click="selectAsset(asset)"
           >
-            <!-- Slate Top Telemetry -->
-            <div class="slate-meta-bar">
-              <span class="slate-scene-take">{{ asset.sceneId }} // TK {{ asset.takeNumber }}</span>
-              <span class="slate-status-badge" :class="'status-' + asset.status.toLowerCase()">
+            <div class="take-card-top">
+              <span class="take-scene">{{ asset.sceneId }} • Take {{ asset.takeNumber }}</span>
+              <span class="take-status-pill" :class="'pill-' + asset.status.toLowerCase()">
                 {{ formatStatus(asset.status) }}
               </span>
             </div>
 
-            <!-- Anamorphic Scope Preview Frame -->
-            <div class="anamorphic-scope-box">
-              <div class="crop-mark top-left"></div>
-              <div class="crop-mark top-right"></div>
-              <div class="crop-mark bottom-left"></div>
-              <div class="crop-mark bottom-right"></div>
-              
-              <div class="scope-inner">
-                <div class="scope-title">{{ asset.title }}</div>
-                <div class="scope-specs">
-                  <span>{{ asset.cameraRoll }}</span>
-                  <span class="bullet">•</span>
-                  <span>{{ asset.fps }} FPS</span>
-                  <span class="bullet">•</span>
-                  <span>PRORES 422</span>
-                </div>
-              </div>
-            </div>
+            <h4 class="take-title">{{ asset.title }}</h4>
 
-            <!-- Dialogue Teleprompter Snippet -->
-            <div v-if="asset.scriptDialogue" class="slate-dialogue-block">
-              <div class="dialogue-cue">SCREENPLAY // CUE:</div>
-              <div class="dialogue-quote">"{{ asset.scriptDialogue }}"</div>
-            </div>
+            <p v-if="asset.scriptDialogue" class="take-dialogue">
+              "{{ asset.scriptDialogue }}"
+            </p>
 
-            <!-- Slate Hardware Actions -->
-            <div class="slate-footer">
-              <span class="slate-runtime">TC {{ formatSeconds(asset.durationSeconds) }} // {{ (asset.comments || []).length }} NOTES</span>
+            <div class="take-card-bottom">
+              <span class="take-runtime">{{ formatSeconds(asset.durationSeconds) }} • {{ (asset.comments || []).length }} notes</span>
               
-              <div class="slate-btns" @click.stop>
+              <div class="take-actions" @click.stop>
                 <button 
                   v-if="asset.status === 'UPLOADED'" 
-                  class="action-btn action-burn" 
+                  class="btn-burn-action" 
                   @click="triggerBurnIn(asset)"
-                  title="Simulate FFmpeg dialogue burn-in worker"
+                  title="Burn screenplay subtitles into video"
                 >
-                  <span>⚡ BURN SUBTITLES</span>
+                  ⚡ Burn Subtitles
                 </button>
                 <button 
                   v-else-if="asset.status === 'READY_FOR_REVIEW'" 
-                  class="action-btn action-lock" 
+                  class="btn-lock-action" 
                   @click="updateStatus(asset, 'APPROVED')"
-                  title="Commit picture lock"
+                  title="Picture Lock this cut"
                 >
-                  <span>🔒 LOCK CUT</span>
+                  🔒 Lock
                 </button>
                 <button 
-                  class="action-btn-del" 
+                  class="btn-delete-action" 
                   @click="deleteAsset(asset.id, asset.title)" 
-                  title="Delete Take"
+                  title="Delete take"
                 >
                   ✕
                 </button>
@@ -183,329 +144,223 @@
             </div>
           </div>
 
-          <div v-if="filteredAssets.length === 0" class="empty-bin-notice">
-            <span class="empty-flag">// NO MATCHING TAKES FOUND //</span>
+          <div v-if="filteredAssets.length === 0" class="empty-bin-state">
+            <p>No takes match your search filter.</p>
           </div>
         </div>
       </aside>
 
-      <!-- Right: Master Cinema Grading & Review Deck -->
-      <section class="master-cinema-deck">
-        <div v-if="selectedAsset" class="viewport-wrapper">
+      <!-- Center & Right: Hero Cinema Player & Notes -->
+      <section class="main-stage">
+        <div v-if="selectedAsset" class="stage-content">
           
-          <!-- Cinema Stage Monitor Screen -->
-          <div class="broadcast-viewport">
-            <!-- Top Broadcast Overlay Strip -->
-            <div class="viewport-hud-top">
-              <div class="hud-left">
-                <span class="rec-led" :class="{ 'live': isPlaying }"></span>
-                <span class="hud-tag">{{ isPlaying ? 'PLAYING 24.00' : 'STBY // PAUSED' }}</span>
-                <span class="hud-lens">A-CAM • 35mm T1.5</span>
+          <!-- Cinema Player Canvas -->
+          <div class="cinema-player-card">
+            <!-- Player Top Status Header -->
+            <div class="player-header-bar">
+              <div class="take-ident">
+                <span class="take-accent-dot" :class="{ 'live': isPlaying }"></span>
+                <span class="take-ident-title">{{ selectedAsset.title }}</span>
+                <span class="take-ident-sub">{{ selectedAsset.sceneId }} • Take {{ selectedAsset.takeNumber }}</span>
               </div>
-              <div class="hud-smpte-display">
-                <span class="smpte-digits">{{ formattedCurrentTimecode }}</span>
-              </div>
-              <div class="hud-right">
-                <span class="hud-format">4096x2160 DCI</span>
-                <span class="hud-scene">{{ selectedAsset.sceneId }} // TK {{ selectedAsset.takeNumber }}</span>
-              </div>
+              <div class="smpte-pill">{{ formattedCurrentTimecode }}</div>
             </div>
 
-            <!-- 2.39:1 / 16:9 Cinema Letterbox Stage -->
-            <div class="cinema-display-canvas">
-              <!-- Viewfinder Optical Guides -->
-              <div class="frame-guide action-safe"></div>
-              <div class="frame-guide title-safe"></div>
-              <div class="center-crosshair">
-                <div class="ch-h"></div>
-                <div class="ch-v"></div>
-              </div>
-
-              <!-- Scene Ident Text -->
-              <div class="cinema-scene-ident">
-                <div class="cinema-main-title">{{ selectedAsset.title }}</div>
-                <div class="cinema-tech-meta">
-                  <span>{{ selectedAsset.cameraRoll }}</span>
-                  <span class="sep">/</span>
-                  <span>COLOR: ARRI REC709</span>
-                  <span class="sep">/</span>
-                  <span>AUDIO: 48kHz 24-BIT</span>
-                </div>
-              </div>
-
-              <!-- Dialogue Subtitle Overlay (Authentic Broadcast Burn-In) -->
-              <div class="burned-subtitle-deck" :class="{ 'has-burned': selectedAsset.processedS3Url }">
-                <div class="burned-indicator">
-                  <span class="indicator-mark">●</span>
-                  <span>{{ selectedAsset.processedS3Url ? 'FFMPEG BURN-IN TRACK' : 'SCREENPLAY WORK PROXY' }}</span>
-                </div>
-                <div class="subtitle-text">
-                  "{{ selectedAsset.scriptDialogue || 'No dialogue assigned for this take.' }}"
-                </div>
-              </div>
-            </div>
-
-            <!-- Stereo Audio VU Peak Meters (Pulsing during playback) -->
-            <div class="audio-vu-deck">
-              <div class="vu-channel">
-                <span class="vu-label">L</span>
-                <div class="vu-meter-bar">
-                  <div class="vu-segment" v-for="n in 20" :key="'l-'+n" :class="getVuClass(n)"></div>
-                </div>
-              </div>
-              <div class="vu-channel">
-                <span class="vu-label">R</span>
-                <div class="vu-meter-bar">
-                  <div class="vu-segment" v-for="n in 20" :key="'r-'+n" :class="getVuClass(n)"></div>
-                </div>
-              </div>
-              <div class="vu-db-scale">
-                <span>-36</span>
-                <span>-24</span>
-                <span>-18</span>
-                <span>-12</span>
-                <span>-6</span>
-                <span>0dB</span>
-                <span class="peak-label">PEAK</span>
-              </div>
-            </div>
-
-            <!-- Precision Transport Deck -->
-            <div class="transport-control-strip">
-              <!-- Transport Hardware Keys -->
-              <div class="transport-keys">
-                <button class="t-btn" @click="stepFrame(-1)" title="Step -1 Frame [◄]">
-                  <span>|◄</span>
-                </button>
-                <button class="t-btn" @click="jumpTime(-5)" title="Jump -5s [J]">
-                  <span>◄◄</span>
-                </button>
-                <button 
-                  class="t-btn t-play" 
-                  :class="{ 't-playing': isPlaying }" 
-                  @click="togglePlay"
-                  :title="isPlaying ? 'Pause [SPACE]' : 'Play [SPACE]'"
-                >
-                  <svg v-if="!isPlaying" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <path d="M8 5v14l11-7z"/>
+            <!-- Cinematic 16:9 Viewport -->
+            <div class="viewport-box" @click="togglePlay">
+              <!-- Center Big Play Button Overlay -->
+              <transition name="play-fade">
+                <div v-if="!isPlaying" class="play-overlay-btn">
+                  <svg viewBox="0 0 24 24" width="28" height="28" fill="#f4c524">
+                    <polygon points="8,5 19,12 8,19" />
                   </svg>
-                  <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-                  </svg>
-                  <span>{{ isPlaying ? 'PAUSE' : 'PLAY' }}</span>
-                </button>
-                <button class="t-btn" @click="jumpTime(5)" title="Jump +5s [L]">
-                  <span>►►</span>
-                </button>
-                <button class="t-btn" @click="stepFrame(1)" title="Step +1 Frame [►]">
-                  <span>►|</span>
-                </button>
-              </div>
-
-              <!-- Timecode Timeline Ruler & Marker Scrubber -->
-              <div class="timeline-scrubber-container">
-                <div class="timeline-tick-ruler">
-                  <span>00:00</span>
-                  <span>00:30</span>
-                  <span>01:00</span>
-                  <span>01:30</span>
-                  <span>02:00</span>
-                  <span>02:30</span>
                 </div>
+              </transition>
 
-                <div class="scrubber-track-wrapper">
-                  <!-- Visual Marker Pins on Timeline -->
+              <!-- Burned Screenplay Subtitle Floating Bar -->
+              <div class="screenplay-subtitle-capsule" :class="{ 'is-burned': selectedAsset.processedS3Url }">
+                <span class="subtitle-badge">
+                  {{ selectedAsset.processedS3Url ? '⚡ SUBTITLE BURNED' : 'SCREENPLAY CUE' }}
+                </span>
+                <p class="subtitle-line">
+                  "{{ selectedAsset.scriptDialogue || 'No screenplay dialogue assigned.' }}"
+                </p>
+              </div>
+            </div>
+
+            <!-- Player Transport & Scrubber Bar -->
+            <div class="player-transport-deck">
+              <button 
+                class="btn-play-pause" 
+                :class="{ 'playing': isPlaying }" 
+                @click.stop="togglePlay"
+              >
+                <svg v-if="!isPlaying" viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <polygon points="8,5 19,12 8,19" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                  <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                </svg>
+                <span>{{ isPlaying ? 'Pause' : 'Play' }}</span>
+              </button>
+
+              <!-- Timeline Scrubber with Markers -->
+              <div class="scrubber-container">
+                <div class="scrubber-pins">
                   <div 
                     v-for="note in (selectedAsset.comments || [])" 
                     :key="'pin-'+note.id" 
-                    class="timeline-marker-pin"
+                    class="scrubber-pin"
                     :style="{ left: calcMarkerLeft(note.timestampSeconds) }"
-                    :title="note.timecode + ' - ' + note.commentText"
+                    :title="note.timecode + ' • ' + note.commentText"
                     @click.stop="jumpToTimecode(note.timestampSeconds)"
-                  >
-                    <span class="marker-diamond">◆</span>
-                  </div>
-
-                  <input 
-                    type="range" 
-                    min="0" 
-                    :max="selectedAsset.durationSeconds || 150" 
-                    v-model.number="currentSeconds" 
-                    class="hardware-scrubber" 
-                  />
+                  ></div>
                 </div>
+                <input 
+                  type="range" 
+                  min="0" 
+                  :max="selectedAsset.durationSeconds || 150" 
+                  v-model.number="currentSeconds" 
+                  class="timeline-slider" 
+                />
               </div>
 
-              <div class="transport-readout">
-                <span class="cur-tc">{{ formattedCurrentTimecode }}</span>
-                <span class="sep">/</span>
-                <span class="tot-tc">{{ formatSeconds(selectedAsset.durationSeconds) }}:00</span>
-              </div>
+              <span class="timeline-readout">
+                {{ formatSeconds(currentSeconds) }} / {{ formatSeconds(selectedAsset.durationSeconds) }}
+              </span>
             </div>
           </div>
 
-          <!-- Edit Decision List (EDL) Director Marker Thread -->
-          <div class="edl-marker-deck">
-            <div class="edl-header-row">
-              <div class="edl-title-block">
-                <div class="edl-title">EDIT DECISION LIST // DIRECTORS LOG</div>
-                <div class="edl-sub">Frame-accurate feedback stored directly in PostgreSQL database</div>
-              </div>
-              <div class="edl-count-badge">{{ (selectedAsset.comments || []).length }} MARKERS</div>
+          <!-- Instant Feedback Section (No Popups!) -->
+          <div class="feedback-deck">
+            <div class="feedback-top-row">
+              <h3>Feedback & Director Notes</h3>
+              <span class="notes-count">{{ (selectedAsset.comments || []).length }} Notes</span>
             </div>
 
-            <!-- Instant Ingest Bar (No Dialog Popups) -->
-            <form class="edl-entry-bar" @submit.prevent="submitInlineNote">
-              <div class="entry-tc-lock">
-                <span class="tc-lock-label">SMPTE:</span>
-                <span class="tc-lock-val">{{ formattedCurrentTimecode }}</span>
-              </div>
-              <div class="dept-selector-cluster">
-                <select v-model="quickDept" class="hardware-select">
-                  <option value="EDITORIAL">EDITORIAL</option>
-                  <option value="COLOR_GRADE">COLOR GRADE</option>
-                  <option value="SOUND_DESIGN">SOUND DESIGN</option>
-                  <option value="VFX">VFX</option>
-                </select>
-              </div>
+            <!-- Inline Modern Add Note Capsule -->
+            <form class="note-input-capsule" @submit.prevent="submitInlineNote">
+              <span class="time-capsule-badge">{{ formattedCurrentTimecode }}</span>
+              
+              <select v-model="quickDept" class="dept-dropdown">
+                <option value="EDITORIAL">Editorial</option>
+                <option value="COLOR_GRADE">Color</option>
+                <option value="SOUND_DESIGN">Sound</option>
+                <option value="VFX">VFX</option>
+              </select>
+
               <input 
                 v-model="quickNoteText" 
                 type="text" 
-                placeholder="Log frame note (e.g. Trim head 4 frames; boost color saturation)..." 
-                class="hardware-input"
+                placeholder="Leave feedback at current timecode (press Enter)..." 
+                class="note-field"
                 required
               />
-              <button type="submit" class="tactile-btn tactile-post" :disabled="submitting || !quickNoteText.trim()">
-                <span>{{ submitting ? 'LOGGING...' : '+ LOG MARKER' }}</span>
+
+              <button type="submit" class="btn-post-note" :disabled="submitting || !quickNoteText.trim()">
+                <span>{{ submitting ? 'Posting...' : 'Post' }}</span>
               </button>
             </form>
 
-            <!-- EDL Marker Table -->
-            <div class="edl-table-wrapper">
-              <table class="edl-table">
-                <thead>
-                  <tr>
-                    <th style="width: 130px;">SMPTE TC</th>
-                    <th style="width: 120px;">DEPARTMENT</th>
-                    <th style="width: 120px;">LOGGED BY</th>
-                    <th>EDITORIAL DECISION / NOTE</th>
-                    <th style="width: 60px; text-align: right;">ACTION</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr 
-                    v-for="note in (selectedAsset.comments || [])" 
-                    :key="note.id" 
-                    class="edl-row"
-                    @click="jumpToTimecode(note.timestampSeconds)"
-                    title="Click row to seek player to this frame"
-                  >
-                    <td>
-                      <span class="edl-tc-tag">
-                        <span class="tc-play-hint">►</span>
-                        <span>{{ note.timecode }}</span>
-                      </span>
-                    </td>
-                    <td>
-                      <span class="edl-dept-tag" :class="'dept-' + (note.department || 'editorial').toLowerCase()">
-                        {{ note.department }}
-                      </span>
-                    </td>
-                    <td><span class="edl-author">{{ note.userId || 'Director' }}</span></td>
-                    <td><span class="edl-note-text">{{ note.commentText }}</span></td>
-                    <td style="text-align: right;">
-                      <button 
-                        class="btn-row-del" 
-                        @click.stop="deleteComment(note.id)" 
-                        title="Delete marker"
-                      >
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
+            <!-- Notes List (Clean Cards) -->
+            <div class="notes-cards-stream">
+              <div 
+                v-for="note in (selectedAsset.comments || [])" 
+                :key="note.id" 
+                class="note-bubble-card"
+                @click="jumpToTimecode(note.timestampSeconds)"
+                title="Click to jump video to this note"
+              >
+                <div class="note-tc-pill">{{ note.timecode }}</div>
+                
+                <div class="note-main">
+                  <div class="note-meta-line">
+                    <span class="dept-tag">{{ note.department }}</span>
+                    <span class="author-tag">{{ note.userId || 'Director' }}</span>
+                  </div>
+                  <p class="note-text-body">{{ note.commentText }}</p>
+                </div>
 
-                  <tr v-if="!selectedAsset.comments || selectedAsset.comments.length === 0">
-                    <td colspan="5" class="empty-edl-cell">
-                      <span>// NO TIMECODED MARKERS LOGGED FOR THIS TAKE //</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                <button 
+                  class="btn-delete-note" 
+                  @click.stop="deleteComment(note.id)" 
+                  title="Delete note"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div v-if="!selectedAsset.comments || selectedAsset.comments.length === 0" class="empty-notes-prompt">
+                <p>No feedback on this take yet. Scrub the video and post a note above.</p>
+              </div>
             </div>
           </div>
 
         </div>
 
-        <!-- No Take Selected Placeholder -->
-        <div v-else class="empty-deck-state">
-          <div class="radar-scope-icon">
-            <svg viewBox="0 0 64 64" width="64" height="64" fill="none">
-              <circle cx="32" cy="32" r="28" stroke="#f4c524" stroke-width="1.5" stroke-dasharray="4 4"/>
-              <circle cx="32" cy="32" r="16" stroke="rgba(244, 197, 36, 0.4)" stroke-width="1.5"/>
-              <line x1="32" y1="4" x2="32" y2="60" stroke="rgba(244, 197, 36, 0.3)"/>
-              <line x1="4" y1="32" x2="60" y2="32" stroke="rgba(244, 197, 36, 0.3)"/>
-              <polygon points="26,20 44,32 26,44" fill="#f4c524"/>
+        <!-- No Selection Placeholder -->
+        <div v-else class="empty-stage-state">
+          <div class="empty-stage-circle">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="#f4c524">
+              <polygon points="8,5 19,12 8,19" />
             </svg>
           </div>
-          <h3>STANDBY // SELECT TAKE FROM MEDIA POOL</h3>
-          <p>Choose any film slate from the left bin to inspect proxy stream, monitor dialogue burn-in, or plot EDL markers.</p>
+          <h3>Select a Take to Review</h3>
+          <p>Choose any film take from the left bin to watch the proxy, verify subtitles, and drop notes.</p>
         </div>
       </section>
     </main>
 
-    <!-- Modal: Ingest Take Hardware Sheet -->
+    <!-- Modal: Add New Take -->
     <div v-if="showUploadModal" class="modal-backdrop" @click.self="showUploadModal = false">
-      <div class="hardware-modal-box">
-        <div class="modal-box-header">
-          <div class="modal-box-title">
-            <span class="title-glyph">▶</span>
-            <span>INGEST RAW FOOTAGE TAKE // CAMERA REEL</span>
-          </div>
-          <button class="btn-box-close" @click="showUploadModal = false">✕</button>
+      <div class="modal-card">
+        <div class="modal-card-top">
+          <h3>Ingest New Film Take</h3>
+          <button class="btn-modal-close" @click="showUploadModal = false">✕</button>
         </div>
 
         <form @submit.prevent="submitNewClip">
-          <div class="form-grid-row">
-            <div class="form-cell flex-2">
-              <label>SCENE IDENTIFIER</label>
-              <input v-model="newClip.sceneId" type="text" placeholder="e.g. Scene 12B" required />
+          <div class="form-row">
+            <div class="form-group flex-2">
+              <label>Scene</label>
+              <input v-model="newClip.sceneId" type="text" placeholder="e.g. Scene 14" required />
             </div>
-            <div class="form-cell flex-1">
-              <label>TAKE #</label>
+            <div class="form-group flex-1">
+              <label>Take #</label>
               <input v-model.number="newClip.takeNumber" type="number" min="1" required />
             </div>
           </div>
 
-          <div class="form-cell">
-            <label>TAKE TITLE / SLATE DESCRIPTION</label>
-            <input v-model="newClip.title" type="text" placeholder="e.g. Rooftop Confrontation Wide Master" required />
+          <div class="form-group">
+            <label>Title / Description</label>
+            <input v-model="newClip.title" type="text" placeholder="e.g. Rooftop Chase Master" required />
           </div>
 
-          <div class="form-cell">
-            <label>SCREENPLAY DIALOGUE (FOR FFmpeg BURN-IN WORKER)</label>
+          <div class="form-group">
+            <label>Script Screenplay Dialogue</label>
             <textarea 
               v-model="newClip.scriptDialogue" 
               rows="3" 
-              placeholder='e.g. DETECTIVE: "Where were you the night of the incident?"'
+              placeholder='e.g. DETECTIVE: "Where were you at midnight?"'
               required
             ></textarea>
           </div>
 
-          <div class="form-grid-row">
-            <div class="form-cell flex-1">
-              <label>CAMERA ROLL IDENT</label>
-              <input v-model="newClip.cameraRoll" type="text" placeholder="Roll A-04" />
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label>Camera Roll</label>
+              <input v-model="newClip.cameraRoll" type="text" placeholder="Roll A-01" />
             </div>
-            <div class="form-cell flex-1">
-              <label>DURATION (SECONDS)</label>
+            <div class="form-group flex-1">
+              <label>Duration (Seconds)</label>
               <input v-model.number="newClip.durationSeconds" type="number" min="5" required />
             </div>
           </div>
 
-          <div class="modal-box-actions">
-            <button type="button" class="tactile-btn tactile-cancel" @click="showUploadModal = false">ABORT</button>
-            <button type="submit" class="tactile-btn tactile-commit" :disabled="submitting">
-              {{ submitting ? 'INGESTING...' : 'COMMIT TAKE TO POSTGRESQL' }}
+          <div class="modal-actions">
+            <button type="button" class="btn-cancel" @click="showUploadModal = false">Cancel</button>
+            <button type="submit" class="btn-confirm" :disabled="submitting">
+              {{ submitting ? 'Adding Take...' : 'Add Take' }}
             </button>
           </div>
         </form>
@@ -525,16 +380,12 @@ const searchQuery = ref('');
 const activeFilter = ref('ALL');
 const showUploadModal = ref(false);
 
-// Video scrubber state
+// Video playback
 const isPlaying = ref(false);
 const currentSeconds = ref(42);
 let playInterval = null;
 
-// Audio VU meter simulation
-const vuPulse = ref(12);
-let vuInterval = null;
-
-// Inline comment inputs
+// Inline comment
 const quickNoteText = ref('');
 const quickDept = ref('EDITORIAL');
 
@@ -577,52 +428,20 @@ function togglePlay() {
         currentSeconds.value++;
       }
     }, 1000);
-
-    vuInterval = setInterval(() => {
-      vuPulse.value = Math.floor(Math.random() * 12) + 6;
-    }, 100);
   } else {
     clearInterval(playInterval);
-    clearInterval(vuInterval);
-    vuPulse.value = 0;
   }
-}
-
-function stepFrame(step) {
-  const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
-  let next = currentSeconds.value + step;
-  if (next < 0) next = 0;
-  if (next > max) next = max;
-  currentSeconds.value = next;
-}
-
-function jumpTime(sec) {
-  const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
-  let next = currentSeconds.value + sec;
-  if (next < 0) next = 0;
-  if (next > max) next = max;
-  currentSeconds.value = next;
 }
 
 function jumpToTimecode(sec) {
   currentSeconds.value = sec;
-  showToast(`SEEK: Jumped playhead to ${formattedCurrentTimecode.value}`);
+  showToast(`Jumped to ${formattedCurrentTimecode.value}`);
 }
 
 function calcMarkerLeft(timestampSec) {
   const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
   const pct = Math.min(100, Math.max(0, (timestampSec / max) * 100));
   return `${pct}%`;
-}
-
-function getVuClass(index) {
-  if (!isPlaying.value) return 'off';
-  if (index <= vuPulse.value) {
-    if (index >= 18) return 'peak';
-    if (index >= 14) return 'warn';
-    return 'on';
-  }
-  return 'off';
 }
 
 async function fetchAll() {
@@ -654,7 +473,7 @@ async function triggerBurnIn(asset) {
   try {
     const res = await fetch(`/api/assets/${asset.id}/burn-in`, { method: 'POST' });
     if (!res.ok) throw new Error(`Burn-in failed`);
-    showToast(`FFMPEG: Subtitles burned onto ${asset.sceneId}. Proxy ready for screening!`, 'success');
+    showToast(`Subtitles burned onto ${asset.sceneId}! Ready for review.`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -669,7 +488,7 @@ async function updateStatus(asset, newStatus) {
       body: JSON.stringify({ status: newStatus })
     });
     if (!res.ok) throw new Error(`Update status failed`);
-    showToast(`LOCK: ${asset.sceneId} committed to picture lock!`, 'success');
+    showToast(`${asset.sceneId} locked!`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -696,7 +515,7 @@ async function submitInlineNote() {
     });
 
     if (!res.ok) throw new Error(`Could not post note`);
-    showToast(`EDL: Marker plotted at ${payload.timecode}!`, 'success');
+    showToast(`Note posted at ${payload.timecode}!`, 'success');
     quickNoteText.value = '';
     await fetchAll();
   } catch (err) {
@@ -710,7 +529,7 @@ async function deleteComment(id) {
   try {
     const res = await fetch(`/api/comments/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Delete note failed`);
-    showToast(`EDL: Marker removed.`, 'success');
+    showToast(`Note deleted.`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -729,9 +548,9 @@ async function submitNewClip() {
       })
     });
 
-    if (!res.ok) throw new Error(`Failed to create clip`);
+    if (!res.ok) throw new Error(`Failed to create take`);
     const created = await res.json();
-    showToast(`INGEST: Committed take ${created.sceneId}`, 'success');
+    showToast(`Added ${created.sceneId}`, 'success');
     showUploadModal.value = false;
     newClip.value = { sceneId: '', takeNumber: 1, title: '', scriptDialogue: '', cameraRoll: 'Roll A-01', durationSeconds: 150, s3BucketUrl: '' };
     await fetchAll();
@@ -744,11 +563,11 @@ async function submitNewClip() {
 }
 
 async function deleteAsset(id, title) {
-  if (!confirm(`Purge '${title}' from PostgreSQL reel database?`)) return;
+  if (!confirm(`Delete '${title}'?`)) return;
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`Delete clip failed`);
-    showToast(`PURGED: Take removed from reel database.`, 'success');
+    if (!res.ok) throw new Error(`Delete take failed`);
+    showToast(`Deleted ${title}`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -767,16 +586,12 @@ const filteredAssets = computed(() => {
   });
 });
 
-function countStatus(st) {
-  return assets.value.filter(a => a.status === st).length;
-}
-
 function formatStatus(st) {
   switch (st) {
-    case 'UPLOADED': return 'RAW PROXY';
-    case 'PROCESSING_BURN_IN': return 'BURNING...';
-    case 'READY_FOR_REVIEW': return 'READY';
-    case 'APPROVED': return 'LOCKED';
+    case 'UPLOADED': return 'Needs Subtitles';
+    case 'PROCESSING_BURN_IN': return 'Processing';
+    case 'READY_FOR_REVIEW': return 'Ready';
+    case 'APPROVED': return 'Locked';
     default: return st;
   }
 }
@@ -794,185 +609,124 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (playInterval) clearInterval(playInterval);
-  if (vuInterval) clearInterval(vuInterval);
 });
 </script>
 
 <style scoped>
-/* High-End Industrial Studio Hardware Console Styling (#f4c524 and Black) */
+/* Ultra-Sleek Modern Studio (Linear / RunwayML / Apple TV+ aesthetic) in #f4c524 and Black */
 
-.studio-workstation {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
+.studio-app {
+  max-width: 1440px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 1.5rem 2rem 2.5rem 2rem;
   background-color: #000000;
   color: #ffffff;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  overflow: hidden;
-  user-select: none;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
 }
 
-/* 1. Hardware Console Top Bar */
-.console-header {
-  height: 52px;
-  background: #080808;
-  border-bottom: 1.5px solid #1a1a1a;
+/* 1. Header */
+.app-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 1rem;
-  flex-shrink: 0;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.console-brand-cluster {
+.brand-group {
   display: flex;
   align-items: center;
   gap: 0.85rem;
 }
 
-.hardware-logo {
-  background: #000000;
-  border: 1.5px solid #f4c524;
-  border-radius: 4px;
-  width: 32px;
-  height: 32px;
+.brand-logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 10px rgba(244, 197, 36, 0.25);
 }
 
-.brand-text-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
-.brand-line {
+.brand-titles {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .brand-name {
-  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.25rem;
   font-weight: 800;
-  font-size: 1rem;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.brand-badge {
+  background: rgba(244, 197, 36, 0.12);
   color: #f4c524;
-  letter-spacing: 0.08em;
-}
-
-.brand-model {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  color: #666666;
-  font-weight: 600;
-}
-
-.system-status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #000000;
-  border: 1px solid #1a1a1a;
-  padding: 0.1rem 0.45rem;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
+  border: 1px solid rgba(244, 197, 36, 0.3);
   font-size: 0.65rem;
-  font-weight: 700;
-  color: #f4c524;
-}
-
-.status-pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #f4c524;
-  box-shadow: 0 0 8px #f4c524;
-}
-
-.telemetry-bar {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  color: #777777;
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-}
-.telemetry-bar em {
-  color: #f4c524;
-  font-style: normal;
-  font-weight: 600;
-}
-.telemetry-bar .sep {
-  color: #333333;
-}
-
-.console-actions-cluster {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.telemetry-stat {
-  display: flex;
-  align-items: baseline;
-  gap: 0.35rem;
-  background: #000000;
-  border: 1px solid #1f1f1f;
-  padding: 0.3rem 0.65rem;
-  border-radius: 4px;
-}
-.stat-num {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
   font-weight: 800;
-  color: #f4c524;
-}
-.stat-label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: #666666;
-  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  letter-spacing: 0.06em;
 }
 
-/* Tactile Buttons */
-.tactile-btn {
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.take-counter {
+  font-size: 0.85rem;
+  color: #888890;
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+.btn-ghost {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  padding: 0.45rem 0.95rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 800;
-  font-family: 'JetBrains Mono', monospace;
-  letter-spacing: 0.04em;
+  background: transparent;
+  color: #888890;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 }
-
-.tactile-sync {
-  background: #000000;
-  border: 1.5px solid #2a2a2a;
-  color: #a3a3a3;
+.btn-ghost:hover:not(:disabled) {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.04);
 }
-.tactile-sync:hover:not(:disabled) {
-  border-color: #f4c524;
-  color: #f4c524;
-}
-.tactile-sync:disabled {
+.btn-ghost:disabled {
   opacity: 0.4;
 }
 
-.tactile-primary {
+.btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   background: #f4c524;
-  border: 1.5px solid #f4c524;
   color: #000000;
-  box-shadow: 0 0 12px rgba(244, 197, 36, 0.25);
+  border: none;
+  padding: 0.5rem 1.15rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 14px rgba(244, 197, 36, 0.25);
 }
-.tactile-primary:hover {
-  background: #000000;
-  color: #f4c524;
+.btn-gold:hover {
+  background: #dfb31b;
+  transform: translateY(-1px);
 }
 
 .spin {
@@ -981,928 +735,719 @@ onUnmounted(() => {
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* Toast */
-.hardware-toast {
+.app-toast {
   position: fixed;
-  top: 60px;
-  right: 1.5rem;
-  background: #000000;
-  border: 1.5px solid #f4c524;
-  color: #f4c524;
-  padding: 0.65rem 1rem;
-  border-radius: 4px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  font-weight: 700;
-  z-index: 300;
+  top: 1.5rem;
+  right: 2rem;
+  background: #09090b;
+  border: 1px solid rgba(244, 197, 36, 0.4);
+  color: #ffffff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  z-index: 500;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(244, 197, 36, 0.35);
+  gap: 0.6rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8), 0 0 15px rgba(244, 197, 36, 0.2);
 }
-.toast-indicator {
-  font-size: 0.7rem;
+.toast-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f4c524;
 }
 
-/* 2. Workspace Body Grid */
-.console-body {
+/* 2. Main Studio Layout */
+.app-layout {
   display: grid;
-  grid-template-columns: 380px 1fr;
-  flex: 1;
-  overflow: hidden;
+  grid-template-columns: 360px 1fr;
+  gap: 2rem;
+  align-items: start;
 }
 
-@media (max-width: 1100px) {
-  .console-body {
+@media (max-width: 1024px) {
+  .app-layout {
     grid-template-columns: 1fr;
   }
 }
 
-/* Left: Media Pool Deck */
-.media-pool-deck {
-  background: #070707;
-  border-right: 1.5px solid #1a1a1a;
+/* Left: Sidebar Bin */
+.sidebar-bin {
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  gap: 1rem;
 }
 
-.deck-header {
-  padding: 0.75rem;
-  border-bottom: 1.5px solid #1a1a1a;
+.sidebar-header {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  background: #090909;
+  gap: 0.75rem;
 }
 
-.deck-title-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.deck-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  font-weight: 800;
-  color: #f4c524;
-  letter-spacing: 0.08em;
-}
-
-.filter-pills {
-  display: flex;
-  gap: 0.35rem;
-}
-
-.filter-pill {
-  flex: 1;
-  background: #000000;
-  border: 1px solid #1f1f1f;
-  color: #666666;
-  padding: 0.25rem 0.2rem;
-  border-radius: 3px;
-  font-size: 0.65rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
-  transition: all 0.15s ease;
-}
-.filter-pill.active {
-  border-color: #f4c524;
-  color: #f4c524;
-  background: #111111;
-}
-
-.bin-search-bar {
+.sidebar-search {
+  position: relative;
   display: flex;
   align-items: center;
-  background: #000000;
-  border: 1px solid #222222;
-  border-radius: 4px;
-  padding: 0.35rem 0.6rem;
-  gap: 0.4rem;
+  background: #0c0c0e;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  gap: 0.5rem;
+  color: #71717a;
+  transition: all 0.15s ease;
 }
-.search-prefix {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  color: #f4c524;
-  font-weight: 800;
+.sidebar-search:focus-within {
+  border-color: #f4c524;
+  box-shadow: 0 0 0 1px #f4c524;
+  color: #ffffff;
 }
-.bin-search-bar input {
+.sidebar-search input {
   flex: 1;
   background: transparent;
   border: none;
   color: #ffffff;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   outline: none;
-  font-family: inherit;
 }
-.clear-btn {
+.clear-search-btn {
   background: transparent;
   border: none;
-  color: #555555;
+  color: #71717a;
   cursor: pointer;
 }
 
-.bins-scroll-area {
-  padding: 0.75rem;
-  overflow-y: auto;
+.filter-row {
   display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  flex: 1;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
-/* Slate Card */
-.slate-card {
-  background: #0a0a0a;
-  border: 1.5px solid #1a1a1a;
+.filter-tag {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #71717a;
+  padding: 0.3rem 0.65rem;
   border-radius: 6px;
-  padding: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+.filter-tag:hover {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.filter-tag.active {
+  background: rgba(244, 197, 36, 0.12);
+  color: #f4c524;
+  border-color: rgba(244, 197, 36, 0.4);
+}
+
+.takes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Take Card */
+.take-card {
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 1rem;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
   transition: all 0.15s ease;
 }
-.slate-card:hover {
-  border-color: #333333;
-  background: #0e0e0e;
+.take-card:hover {
+  background: #111113;
+  border-color: rgba(255, 255, 255, 0.15);
 }
-.slate-card.slate-selected {
+.take-card.selected {
+  background: #121214;
   border-color: #f4c524;
-  background: #101010;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.15);
+  box-shadow: 0 0 20px rgba(244, 197, 36, 0.15);
 }
 
-.slate-meta-bar {
+.take-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.slate-scene-take {
-  font-family: 'JetBrains Mono', monospace;
+.take-scene {
   font-size: 0.8rem;
-  font-weight: 800;
-  color: #f4c524;
-}
-
-.slate-status-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
-  font-weight: 800;
-  padding: 0.1rem 0.4rem;
-  border-radius: 2px;
-  letter-spacing: 0.05em;
-}
-.status-uploaded {
-  background: #000000;
-  border: 1px solid #333333;
-  color: #888888;
-}
-.status-ready_for_review {
-  background: #f4c524;
-  color: #000000;
-  border: 1px solid #f4c524;
-}
-.status-approved {
-  background: #000000;
-  border: 1px solid #ffffff;
-  color: #ffffff;
-}
-
-/* Anamorphic Scope Box */
-.anamorphic-scope-box {
-  position: relative;
-  background: #000000;
-  border: 1px solid #1f1f1f;
-  border-radius: 4px;
-  padding: 0.65rem;
-  min-height: 54px;
-}
-
-.crop-mark {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-color: #f4c524;
-  opacity: 0.6;
-}
-.crop-mark.top-left { top: 3px; left: 3px; border-top: 1.5px solid; border-left: 1.5px solid; }
-.crop-mark.top-right { top: 3px; right: 3px; border-top: 1.5px solid; border-right: 1.5px solid; }
-.crop-mark.bottom-left { bottom: 3px; left: 3px; border-bottom: 1.5px solid; border-left: 1.5px solid; }
-.crop-mark.bottom-right { bottom: 3px; right: 3px; border-bottom: 1.5px solid; border-right: 1.5px solid; }
-
-.scope-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-.scope-title {
-  font-size: 0.85rem;
   font-weight: 700;
-  color: #ffffff;
-}
-.scope-specs {
+  color: #f4c524;
   font-family: 'JetBrains Mono', monospace;
+}
+
+.take-status-pill {
   font-size: 0.65rem;
-  color: #666666;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-.bullet { color: #333333; }
-
-.slate-dialogue-block {
-  background: #000000;
-  border-left: 2px solid #f4c524;
-  padding: 0.35rem 0.5rem;
-  font-size: 0.75rem;
-}
-.dialogue-cue {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
-  color: #f4c524;
   font-weight: 700;
-  margin-bottom: 0.15rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
 }
-.dialogue-quote {
-  color: #cccccc;
-  font-style: italic;
+.pill-uploaded {
+  background: rgba(255, 255, 255, 0.06);
+  color: #a1a1aa;
+}
+.pill-ready_for_review {
+  background: rgba(244, 197, 36, 0.15);
+  color: #f4c524;
+}
+.pill-approved {
+  background: #ffffff;
+  color: #000000;
+  font-weight: 800;
+}
+
+.take-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
   line-height: 1.3;
 }
 
-.slate-footer {
+.take-dialogue {
+  font-size: 0.8rem;
+  color: #a1a1aa;
+  font-style: italic;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.take-card-bottom {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.2rem;
+  margin-top: 0.25rem;
 }
 
-.slate-runtime {
+.take-runtime {
+  font-size: 0.75rem;
+  color: #71717a;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  color: #555555;
 }
 
-.slate-btns {
+.take-actions {
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-.action-btn {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
+.btn-burn-action {
+  background: #f4c524;
+  color: #000000;
+  border: none;
+  font-size: 0.75rem;
   font-weight: 800;
-  padding: 0.25rem 0.55rem;
-  border-radius: 3px;
+  padding: 0.3rem 0.75rem;
+  border-radius: 5px;
   cursor: pointer;
-  letter-spacing: 0.04em;
+  transition: all 0.15s ease;
+}
+.btn-burn-action:hover {
+  background: #dfb31b;
 }
 
-.action-burn {
+.btn-lock-action {
+  background: transparent;
+  color: #f4c524;
+  border: 1px solid #f4c524;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.btn-lock-action:hover {
   background: #f4c524;
   color: #000000;
-  border: 1px solid #f4c524;
-}
-.action-burn:hover {
-  background: #000000;
-  color: #f4c524;
 }
 
-.action-lock {
-  background: #000000;
-  border: 1px solid #f4c524;
-  color: #f4c524;
-}
-.action-lock:hover {
-  background: #f4c524;
-  color: #000000;
-}
-
-.action-btn-del {
+.btn-delete-action {
   background: transparent;
   border: none;
-  color: #555555;
+  color: #52525b;
   cursor: pointer;
   padding: 0.2rem;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
 }
-.action-btn-del:hover {
+.btn-delete-action:hover {
   color: #ffffff;
 }
 
-.empty-bin-notice {
+.empty-bin-state {
   text-align: center;
   padding: 3rem 1rem;
-  color: #444444;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  color: #71717a;
+  font-size: 0.85rem;
 }
 
-/* Right: Master Cinema Deck */
-.master-cinema-deck {
-  background: #030303;
+/* 3. Center & Right: Hero Cinema Stage */
+.main-stage {
   display: flex;
   flex-direction: column;
+}
+
+.stage-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Cinema Player Card */
+.cinema-player-card {
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
   overflow: hidden;
-}
-
-.viewport-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow-y: auto;
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.9);
 }
 
-/* Broadcast Viewport */
-.broadcast-viewport {
-  background: #000000;
-  border-bottom: 2px solid #1a1a1a;
-  display: flex;
-  flex-direction: column;
-}
-
-.viewport-hud-top {
-  height: 38px;
-  background: #060606;
-  border-bottom: 1px solid #151515;
+.player-header-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 1rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: #0c0c0e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.hud-left {
+.take-ident {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #888888;
+  gap: 0.6rem;
 }
 
-.rec-led {
-  width: 7px;
-  height: 7px;
+.take-accent-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #333333;
+  background: #52525b;
 }
-.rec-led.live {
+.take-accent-dot.live {
   background: #f4c524;
   box-shadow: 0 0 10px #f4c524;
 }
 
-.hud-tag {
+.take-ident-title {
+  font-size: 1rem;
   font-weight: 800;
   color: #ffffff;
 }
-.hud-lens {
-  color: #555555;
-  font-size: 0.7rem;
+
+.take-ident-sub {
+  font-size: 0.8rem;
+  color: #71717a;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-.hud-smpte-display {
+.smpte-pill {
   background: #000000;
-  border: 1px solid #222222;
-  padding: 0.15rem 0.75rem;
-  border-radius: 3px;
-}
-.smpte-digits {
-  font-size: 1.15rem;
-  font-weight: 800;
+  border: 1px solid rgba(244, 197, 36, 0.35);
   color: #f4c524;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 0.35rem 0.85rem;
+  border-radius: 6px;
   letter-spacing: 0.05em;
-  text-shadow: 0 0 8px rgba(244, 197, 36, 0.4);
+  text-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
 }
 
-.hud-right {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.hud-format {
-  color: #555555;
-  font-size: 0.7rem;
-}
-.hud-scene {
-  color: #f4c524;
-  font-weight: 800;
-}
-
-/* Cinema Display Canvas */
-.cinema-display-canvas {
+/* Viewport Box (16:9 Cinema Aspect) */
+.viewport-box {
   position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 440px;
   background: #000000;
-  min-height: 280px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  padding: 2rem 2.5rem 1.5rem 2.5rem;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 2rem;
+  cursor: pointer;
+  background-image: radial-gradient(circle at center, #111114 0%, #000000 85%);
   overflow: hidden;
-  border-bottom: 1px solid #111111;
 }
 
-/* Viewfinder Optical Guides */
-.frame-guide {
-  position: absolute;
-  pointer-events: none;
-}
-.frame-guide.action-safe {
-  top: 5%; left: 5%; right: 5%; bottom: 5%;
-  border: 1px dashed rgba(244, 197, 36, 0.12);
-}
-.frame-guide.title-safe {
-  top: 10%; left: 10%; right: 10%; bottom: 10%;
-  border: 1px dashed rgba(255, 255, 255, 0.05);
-}
-
-.center-crosshair {
+/* Center Play Button Overlay */
+.play-overlay-btn {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 24px;
-  height: 24px;
-  pointer-events: none;
-  opacity: 0.25;
-}
-.ch-h {
-  position: absolute;
-  top: 11px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #f4c524;
-}
-.ch-v {
-  position: absolute;
-  left: 11px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: #f4c524;
-}
-
-.cinema-scene-ident {
-  text-align: center;
-  position: relative;
-  z-index: 2;
-}
-.cinema-main-title {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.02em;
-}
-.cinema-tech-meta {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  color: #666666;
-  margin-top: 0.35rem;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1.5px solid #f4c524;
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  padding-left: 3px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(244, 197, 36, 0.3);
+  transition: all 0.2s ease;
+}
+.viewport-box:hover .play-overlay-btn {
+  transform: translate(-50%, -50%) scale(1.08);
+  background: #000000;
+  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.9), 0 0 25px rgba(244, 197, 36, 0.45);
 }
 
-/* Broadcast Burned Subtitle Deck */
-.burned-subtitle-deck {
-  position: relative;
-  z-index: 2;
-  margin: 1.5rem auto 0 auto;
-  max-width: 680px;
+/* Floating Subtitle Capsule */
+.screenplay-subtitle-capsule {
+  max-width: 640px;
   width: 100%;
-  background: rgba(0, 0, 0, 0.92);
-  border: 1.5px solid #222222;
-  border-radius: 4px;
-  padding: 0.75rem 1.25rem;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.85rem 1.25rem;
   text-align: center;
+  z-index: 2;
+  transition: all 0.2s ease;
 }
-.burned-subtitle-deck.has-burned {
+.screenplay-subtitle-capsule.is-burned {
   border-color: #f4c524;
-  box-shadow: 0 0 20px rgba(244, 197, 36, 0.2);
+  box-shadow: 0 0 25px rgba(244, 197, 36, 0.2);
 }
 
-.burned-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
+.subtitle-badge {
+  display: block;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.65rem;
   font-weight: 800;
   color: #f4c524;
   letter-spacing: 0.08em;
-  margin-bottom: 0.35rem;
-}
-.indicator-mark {
-  font-size: 0.5rem;
+  margin-bottom: 0.3rem;
 }
 
-.subtitle-text {
-  font-size: 1.1rem;
-  font-weight: 700;
+.subtitle-line {
+  font-size: 1.05rem;
+  font-weight: 600;
   color: #f4c524;
   line-height: 1.4;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
-/* Stereo Audio VU Meters */
-.audio-vu-deck {
-  height: 28px;
-  background: #050505;
-  border-bottom: 1px solid #151515;
-  display: flex;
-  align-items: center;
-  padding: 0 1rem;
-  gap: 1.25rem;
-}
-
-.vu-channel {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex: 1;
-}
-.vu-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  font-weight: 800;
-  color: #666666;
-}
-.vu-meter-bar {
-  display: flex;
-  gap: 2px;
-  flex: 1;
-  height: 8px;
-  background: #000000;
-  padding: 1px;
-}
-.vu-segment {
-  flex: 1;
-  height: 100%;
-  background: #111111;
-  border-radius: 1px;
-}
-.vu-segment.on {
-  background: #f4c524;
-  opacity: 0.85;
-}
-.vu-segment.warn {
-  background: #f4c524;
-  box-shadow: 0 0 6px #f4c524;
-}
-.vu-segment.peak {
-  background: #ffffff;
-  box-shadow: 0 0 8px #ffffff;
-}
-
-.vu-db-scale {
-  display: flex;
-  gap: 1.25rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
-  color: #444444;
-}
-.peak-label {
-  color: #f4c524;
-  font-weight: 800;
-}
-
-/* Precision Transport Control Strip */
-.transport-control-strip {
-  background: #080808;
-  padding: 0.75rem 1rem;
+/* Player Transport & Scrubber Deck */
+.player-transport-deck {
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  border-bottom: 1.5px solid #1a1a1a;
+  padding: 1rem 1.5rem;
+  background: #0c0c0e;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.transport-keys {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.t-btn {
-  background: #000000;
-  border: 1px solid #222222;
-  color: #888888;
-  padding: 0.4rem 0.65rem;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  font-weight: 800;
-  cursor: pointer;
+.btn-play-pause {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  transition: all 0.15s ease;
-}
-.t-btn:hover {
-  border-color: #f4c524;
-  color: #f4c524;
-}
-
-.t-play {
+  gap: 0.45rem;
   background: #f4c524;
   color: #000000;
-  border-color: #f4c524;
-  padding: 0.45rem 1rem;
+  border: none;
+  font-size: 0.85rem;
   font-weight: 800;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
 }
-.t-play:hover {
+.btn-play-pause:hover {
+  background: #dfb31b;
+}
+.btn-play-pause.playing {
   background: #000000;
   color: #f4c524;
-}
-.t-play.t-playing {
-  background: #000000;
-  border-color: #f4c524;
-  color: #f4c524;
-  box-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
+  border: 1px solid #f4c524;
 }
 
-.timeline-scrubber-container {
+.scrubber-container {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.timeline-tick-ruler {
-  display: flex;
-  justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.65rem;
-  color: #444444;
-  padding: 0 2px;
-}
-
-.scrubber-track-wrapper {
   position: relative;
   display: flex;
   align-items: center;
 }
 
-.timeline-marker-pin {
+.scrubber-pins {
   position: absolute;
-  top: -12px;
-  transform: translateX(-50%);
-  cursor: pointer;
-  z-index: 5;
-  color: #f4c524;
-  font-size: 0.75rem;
-  text-shadow: 0 0 6px #f4c524;
-  transition: transform 0.15s ease;
-}
-.timeline-marker-pin:hover {
-  transform: translateX(-50%) scale(1.4);
+  inset: 0;
+  pointer-events: none;
 }
 
-.hardware-scrubber {
+.scrubber-pin {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 14px;
+  background: #f4c524;
+  border-radius: 2px;
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 0 6px #f4c524;
+  transition: transform 0.15s ease;
+}
+.scrubber-pin:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+}
+
+.timeline-slider {
   width: 100%;
   accent-color: #f4c524;
   cursor: pointer;
   height: 5px;
 }
 
-.transport-readout {
+.timeline-readout {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.8rem;
-  font-weight: 800;
+  font-size: 0.85rem;
+  color: #888890;
+  font-weight: 600;
   white-space: nowrap;
 }
-.cur-tc { color: #f4c524; }
-.tot-tc { color: #666666; }
 
-/* 3. Edit Decision List (EDL) Markers Deck */
-.edl-marker-deck {
-  padding: 1rem;
+/* 4. Instant Feedback Deck */
+.feedback-deck {
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  flex: 1;
+  gap: 1.25rem;
 }
 
-.edl-header-row {
+.feedback-top-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.edl-title {
+.feedback-top-row h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+.notes-count {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #f4c524;
+  background: rgba(244, 197, 36, 0.12);
+  border: 1px solid rgba(244, 197, 36, 0.3);
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+}
+
+/* Note Input Capsule */
+.note-input-capsule {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.45rem 0.65rem;
+  transition: border-color 0.15s ease;
+}
+.note-input-capsule:focus-within {
+  border-color: #f4c524;
+  box-shadow: 0 0 0 1px #f4c524;
+}
+
+.time-capsule-badge {
+  background: #111113;
+  color: #f4c524;
+  border: 1px solid rgba(244, 197, 36, 0.3);
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.8rem;
-  font-weight: 800;
-  color: #f4c524;
-  letter-spacing: 0.06em;
-}
-.edl-sub {
-  font-size: 0.75rem;
-  color: #666666;
-}
-.edl-count-badge {
-  background: #000000;
-  border: 1px solid #222222;
-  color: #f4c524;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.2rem 0.5rem;
-  border-radius: 3px;
-}
-
-/* Ingest Entry Bar */
-.edl-entry-bar {
-  display: flex;
-  background: #090909;
-  border: 1.5px solid #222222;
-  border-radius: 4px;
-  padding: 0.45rem;
-  gap: 0.5rem;
-  align-items: center;
-}
-
-.entry-tc-lock {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  background: #000000;
-  border: 1px solid #f4c524;
   padding: 0.35rem 0.65rem;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  border-radius: 6px;
   white-space: nowrap;
 }
-.tc-lock-label { color: #666666; font-size: 0.65rem; }
-.tc-lock-val { color: #f4c524; font-weight: 800; }
 
-.hardware-select {
-  background: #000000;
-  border: 1px solid #2a2a2a;
+.dept-dropdown {
+  background: #111113;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #ffffff;
   padding: 0.4rem 0.65rem;
-  border-radius: 3px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-  font-weight: 700;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
   outline: none;
 }
 
-.hardware-input {
+.note-field {
   flex: 1;
   background: transparent;
   border: none;
   color: #ffffff;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   padding: 0.4rem;
   outline: none;
-  font-family: inherit;
 }
 
-.tactile-post {
+.btn-post-note {
   background: #f4c524;
   color: #000000;
-  border: 1.5px solid #f4c524;
-  padding: 0.4rem 1rem;
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 800;
+  padding: 0.45rem 1.15rem;
+  border-radius: 6px;
+  cursor: pointer;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
-.tactile-post:hover:not(:disabled) {
-  background: #000000;
-  color: #f4c524;
+.btn-post-note:hover:not(:disabled) {
+  background: #dfb31b;
 }
-.tactile-post:disabled {
+.btn-post-note:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-/* EDL Marker Table */
-.edl-table-wrapper {
-  background: #000000;
-  border: 1.5px solid #1a1a1a;
-  border-radius: 4px;
+/* Notes Cards Stream */
+.notes-cards-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 280px;
   overflow-y: auto;
-  max-height: 240px;
 }
 
-.edl-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
-}
-
-.edl-table th {
-  background: #080808;
-  color: #666666;
-  text-align: left;
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid #1a1a1a;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
-
-.edl-row {
-  border-bottom: 1px solid #111111;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.edl-row:hover {
-  background: #0c0c0c;
-}
-.edl-row td {
-  padding: 0.55rem 0.75rem;
-}
-
-.edl-tc-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: #f4c524;
-  font-weight: 800;
-  background: #0a0a0a;
-  border: 1px solid #222222;
-  padding: 0.15rem 0.45rem;
-  border-radius: 2px;
-}
-.tc-play-hint { font-size: 0.6rem; opacity: 0.6; }
-
-.edl-dept-tag {
-  display: inline-block;
-  font-size: 0.65rem;
-  font-weight: 800;
-  padding: 0.1rem 0.4rem;
-  border-radius: 2px;
+.note-bubble-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
   background: #000000;
-  border: 1px solid #333333;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.note-bubble-card:hover {
+  background: #0c0c0e;
+  border-color: rgba(244, 197, 36, 0.4);
+}
+
+.note-tc-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 800;
   color: #f4c524;
+  background: #111113;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
-.edl-author {
-  color: #888888;
+.note-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
 }
 
-.edl-note-text {
-  color: #e5e5e5;
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 0.8rem;
+.note-meta-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dept-tag {
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #f4c524;
+  text-transform: uppercase;
+}
+.author-tag {
+  font-size: 0.75rem;
+  color: #71717a;
 }
 
-.btn-row-del {
+.note-text-body {
+  font-size: 0.9rem;
+  color: #e4e4e7;
+  line-height: 1.4;
+}
+
+.btn-delete-note {
   background: transparent;
   border: none;
-  color: #555555;
+  color: #52525b;
   cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.2rem;
 }
-.btn-row-del:hover {
+.btn-delete-note:hover {
   color: #ffffff;
 }
 
-.empty-edl-cell {
+.empty-notes-prompt {
   text-align: center;
   padding: 2.5rem 1rem;
-  color: #444444;
-  font-size: 0.75rem;
+  color: #71717a;
+  font-size: 0.85rem;
 }
 
-/* Empty Deck State */
-.empty-deck-state {
+/* Empty Stage State */
+.empty-stage-state {
   margin: auto;
   text-align: center;
-  padding: 5rem 2rem;
-  color: #555555;
+  padding: 6rem 2rem;
+  color: #71717a;
 }
-.radar-scope-icon {
+.empty-stage-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(244, 197, 36, 0.1);
+  border: 1px solid rgba(244, 197, 36, 0.3);
   display: flex;
+  align-items: center;
   justify-content: center;
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.5rem auto;
+  padding-left: 4px;
 }
-.empty-deck-state h3 {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1rem;
-  color: #f4c524;
-  letter-spacing: 0.08em;
-  margin-bottom: 0.5rem;
+.empty-stage-state h3 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 0.4rem;
 }
-.empty-deck-state p {
-  font-size: 0.85rem;
-  color: #666666;
-  max-width: 480px;
+.empty-stage-state p {
+  font-size: 0.9rem;
+  max-width: 440px;
   margin: 0 auto;
 }
 
-/* Modal: Hardware Sheet */
+/* Modal: Clean Modern Card */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.88);
-  backdrop-filter: blur(5px);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1910,110 +1455,107 @@ onUnmounted(() => {
   padding: 1.5rem;
 }
 
-.hardware-modal-box {
-  background: #080808;
-  border: 2px solid #f4c524;
-  border-radius: 6px;
+.modal-card {
+  background: #09090b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
   width: 100%;
-  max-width: 540px;
-  padding: 1.5rem;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.98), 0 0 25px rgba(244, 197, 36, 0.25);
+  max-width: 500px;
+  padding: 1.75rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(244, 197, 36, 0.15);
 }
 
-.modal-box-header {
+.modal-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1.5px solid #1f1f1f;
-  padding-bottom: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
-
-.modal-box-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
+.modal-card-top h3 {
+  font-size: 1.2rem;
   font-weight: 800;
-  color: #f4c524;
-  letter-spacing: 0.06em;
+  color: #ffffff;
 }
-.title-glyph { font-size: 0.7rem; }
 
-.btn-box-close {
+.btn-modal-close {
   background: transparent;
   border: none;
-  color: #666666;
+  color: #71717a;
   font-size: 1.2rem;
   cursor: pointer;
 }
-.btn-box-close:hover {
-  color: #f4c524;
+.btn-modal-close:hover {
+  color: #ffffff;
 }
 
-.form-grid-row {
+.form-row {
   display: flex;
   gap: 0.85rem;
 }
 .flex-1 { flex: 1; }
 .flex-2 { flex: 2; }
 
-.form-cell {
+.form-group {
   margin-bottom: 1rem;
 }
-.form-cell label {
+.form-group label {
   display: block;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #888888;
-  margin-bottom: 0.4rem;
-  letter-spacing: 0.04em;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #a1a1aa;
+  margin-bottom: 0.35rem;
 }
-
-.form-cell input, .form-cell textarea {
+.form-group input, .form-group textarea {
   width: 100%;
   background: #000000;
-  border: 1.5px solid #222222;
-  border-radius: 4px;
-  padding: 0.55rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 0.6rem 0.85rem;
   color: #ffffff;
   font-family: inherit;
   font-size: 0.85rem;
   outline: none;
-  transition: border-color 0.15s ease;
+  transition: all 0.15s ease;
 }
-.form-cell input:focus, .form-cell textarea:focus {
+.form-group input:focus, .form-group textarea:focus {
   border-color: #f4c524;
+  box-shadow: 0 0 0 1px #f4c524;
 }
 
-.modal-box-actions {
+.modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  margin-top: 1.5rem;
-  border-top: 1.5px solid #1f1f1f;
-  padding-top: 1rem;
+  margin-top: 1.75rem;
 }
 
-.tactile-cancel {
-  background: #000000;
-  border: 1.5px solid #2a2a2a;
-  color: #888888;
+.btn-cancel {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #a1a1aa;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
 }
-.tactile-cancel:hover {
-  border-color: #666666;
+.btn-cancel:hover {
   color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
-.tactile-commit {
+.btn-confirm {
   background: #f4c524;
-  border: 1.5px solid #f4c524;
   color: #000000;
+  border: none;
+  padding: 0.55rem 1.35rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
-.tactile-commit:hover:not(:disabled) {
-  background: #000000;
-  color: #f4c524;
+.btn-confirm:hover:not(:disabled) {
+  background: #dfb31b;
 }
 </style>
