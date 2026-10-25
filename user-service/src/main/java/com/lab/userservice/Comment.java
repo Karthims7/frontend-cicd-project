@@ -5,41 +5,45 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "timecoded_notes")
-public class TimecodedNote {
+@Table(name = "comments")
+public class Comment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "clip_id", nullable = false)
+    @JoinColumn(name = "asset_id", nullable = false)
     @JsonBackReference
-    private Clip clip;
+    private Asset asset;
+
+    @Column(name = "timestamp_seconds", nullable = false)
+    private Integer timestampSeconds;
 
     @Column(nullable = false, length = 20)
     private String timecode; // e.g. 00:01:24:12
 
-    @Column(nullable = false, length = 100)
-    private String author;
+    @Column(name = "user_id", nullable = false, length = 100)
+    private String userId; // Author (e.g. Director Nolan)
 
     @Column(nullable = false, length = 50)
     private String department; // EDITORIAL, COLOR_GRADE, SOUND_DESIGN, VFX
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String comment;
+    @Column(name = "comment_text", nullable = false, columnDefinition = "TEXT")
+    private String commentText;
 
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
 
-    public TimecodedNote() {}
+    public Comment() {}
 
-    public TimecodedNote(Clip clip, String timecode, String author, String department, String comment) {
-        this.clip = clip;
+    public Comment(Asset asset, Integer timestampSeconds, String timecode, String userId, String department, String commentText) {
+        this.asset = asset;
+        this.timestampSeconds = timestampSeconds;
         this.timecode = timecode;
-        this.author = author;
+        this.userId = userId;
         this.department = department;
-        this.comment = comment;
+        this.commentText = commentText;
         this.createdAt = Instant.now();
     }
 
@@ -58,12 +62,20 @@ public class TimecodedNote {
         this.id = id;
     }
 
-    public Clip getClip() {
-        return clip;
+    public Asset getAsset() {
+        return asset;
     }
 
-    public void setClip(Clip clip) {
-        this.clip = clip;
+    public void setAsset(Asset asset) {
+        this.asset = asset;
+    }
+
+    public Integer getTimestampSeconds() {
+        return timestampSeconds;
+    }
+
+    public void setTimestampSeconds(Integer timestampSeconds) {
+        this.timestampSeconds = timestampSeconds;
     }
 
     public String getTimecode() {
@@ -74,12 +86,12 @@ public class TimecodedNote {
         this.timecode = timecode;
     }
 
-    public String getAuthor() {
-        return author;
+    public String getUserId() {
+        return userId;
     }
 
-    public void setAuthor(String author) {
-        this.author = author;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
     public String getDepartment() {
@@ -90,12 +102,12 @@ public class TimecodedNote {
         this.department = department;
     }
 
-    public String getComment() {
-        return comment;
+    public String getCommentText() {
+        return commentText;
     }
 
-    public void setComment(String comment) {
-        this.comment = comment;
+    public void setCommentText(String commentText) {
+        this.commentText = commentText;
     }
 
     public Instant getCreatedAt() {

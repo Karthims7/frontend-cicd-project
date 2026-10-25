@@ -1,9 +1,10 @@
 package com.lab.userservice;
 
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface ClipRepository extends JpaRepository<Clip, Long> {
-    long countByStatus(String status);
+public interface EventLogRepository extends JpaRepository<EventLog, Long> {
+    List<EventLog> findTop20ByOrderByIdDesc();
 }

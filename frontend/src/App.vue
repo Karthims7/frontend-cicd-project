@@ -6,14 +6,15 @@
         <div class="clapper-icon">🎬</div>
         <div>
           <div class="brand-title">CollabCut Studio</div>
-          <div class="project-tag">Project: <em>"Chronicles of Dawn"</em> • Feature Film Post-Pipeline</div>
+          <div class="project-tag">
+            Event-Driven Film Post-Production Tracker • <em>"Chronicles of Dawn"</em>
+          </div>
         </div>
       </div>
       <div class="header-controls">
-        <div class="k8s-badge">
-          <span class="live-pulse"></span>
-          <span>devops-lab / Minikube</span>
-        </div>
+        <button class="btn-event-feed" @click="showEventFeed = !showEventFeed">
+          <span>📡 Broker Stream ({{ events.length }})</span>
+        </button>
         <button class="btn-ingest" @click="showIngestModal = true">
           <span>+ Ingest Footage</span>
         </button>
@@ -23,37 +24,56 @@
       </div>
     </header>
 
-    <!-- Pipeline KPI Bar -->
+    <!-- Microservices Architecture Diagram Banner -->
+    <section class="arch-banner">
+      <div class="arch-label">Decoupled Architecture Flow:</div>
+      <div class="arch-flow">
+        <div class="arch-node">
+          <span class="node-title">1. Ingest API</span>
+          <span class="node-sub">POST /api/assets</span>
+        </div>
+        <div class="arch-arrow">
+          <span class="event-tag">footage.uploaded</span>
+          <span>➔</span>
+        </div>
+        <div class="arch-node">
+          <span class="node-title">2. Burn-In Worker</span>
+          <span class="node-sub">FFmpeg Dialogue Overlay</span>
+        </div>
+        <div class="arch-arrow">
+          <span class="event-tag">footage.processed</span>
+          <span>➔</span>
+        </div>
+        <div class="arch-node">
+          <span class="node-title">3. Review API</span>
+          <span class="node-sub">PostgreSQL Timecodes</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- KPI Metrics Bar -->
     <section class="kpi-grid">
       <div class="kpi-card" :class="{ 'active': filterStatus === 'ALL' }" @click="filterStatus = 'ALL'">
         <div class="kpi-icon">🎞️</div>
         <div>
-          <div class="kpi-num">{{ clips.length }}</div>
-          <div class="kpi-label">Total Clips</div>
+          <div class="kpi-num">{{ assets.length }}</div>
+          <div class="kpi-label">Total Assets</div>
         </div>
       </div>
 
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'INGESTED' }" @click="filterStatus = 'INGESTED'">
+      <div class="kpi-card" :class="{ 'active': filterStatus === 'UPLOADED' }" @click="filterStatus = 'UPLOADED'">
         <div class="kpi-icon ingest-color">📥</div>
         <div>
-          <div class="kpi-num">{{ countStatus('INGESTED') }}</div>
-          <div class="kpi-label">Ingested</div>
+          <div class="kpi-num">{{ countStatus('UPLOADED') }}</div>
+          <div class="kpi-label">Uploaded</div>
         </div>
       </div>
 
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'SCRIPT_BURN_IN' }" @click="filterStatus = 'SCRIPT_BURN_IN'">
-        <div class="kpi-icon burnin-color">⚡</div>
-        <div>
-          <div class="kpi-num">{{ countStatus('SCRIPT_BURN_IN') }}</div>
-          <div class="kpi-label">Script Burn-In</div>
-        </div>
-      </div>
-
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'IN_REVIEW' }" @click="filterStatus = 'IN_REVIEW'">
+      <div class="kpi-card" :class="{ 'active': filterStatus === 'READY_FOR_REVIEW' }" @click="filterStatus = 'READY_FOR_REVIEW'">
         <div class="kpi-icon review-color">👁️</div>
         <div>
-          <div class="kpi-num">{{ countStatus('IN_REVIEW') }}</div>
-          <div class="kpi-label">In Review</div>
+          <div class="kpi-num">{{ countStatus('READY_FOR_REVIEW') }}</div>
+          <div class="kpi-label">Ready for Review</div>
         </div>
       </div>
 
@@ -68,161 +88,214 @@
       <div class="kpi-card">
         <div class="kpi-icon notes-color">💬</div>
         <div>
-          <div class="kpi-num">{{ totalNotesCount }}</div>
-          <div class="kpi-label">Director Notes</div>
+          <div class="kpi-num">{{ totalCommentsCount }}</div>
+          <div class="kpi-label">Timecoded Notes</div>
         </div>
       </div>
     </section>
 
-    <!-- Toast Banner -->
+    <!-- Toast Notification -->
     <div v-if="toast.show" class="studio-toast" :class="toast.type">
       {{ toast.message }}
     </div>
 
+    <!-- Live Event Broker Modal / Drawer -->
+    <div v-if="showEventFeed" class="event-drawer">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <span>📡 Asynchronous Message Broker Feed (RabbitMQ Log)</span>
+        </div>
+        <button class="btn-close-sm" @click="showEventFeed = false">✕</button>
+      </div>
+      <div class="event-list">
+        <div v-for="evt in events" :key="evt.id" class="event-card">
+          <div class="event-card-top">
+            <span class="event-badge">{{ evt.eventName }}</span>
+            <span class="event-time">{{ formatDate(evt.createdAt) }}</span>
+          </div>
+          <pre><code>{{ formatPayload(evt.payload) }}</code></pre>
+        </div>
+        <div v-if="events.length === 0" class="empty-events">No events emitted yet.</div>
+      </div>
+    </div>
+
     <!-- Main Studio Workspace (Split View) -->
     <div class="studio-workspace">
-      <!-- Left: Clip Ingest Bin & List -->
+      <!-- Left: Asset Ingest Bin -->
       <section class="bin-panel">
         <div class="panel-topbar">
           <div class="bin-title">
             <span>Footage Ingest Bin</span>
-            <span class="count-pill">{{ filteredClips.length }}</span>
+            <span class="count-pill">{{ filteredAssets.length }}</span>
           </div>
           <div class="bin-search">
             <input 
               v-model="searchQuery" 
               type="text" 
-              placeholder="Search scene, take, roll..." 
+              placeholder="Search scene, take, roll, title..." 
             />
           </div>
         </div>
 
-        <div class="clip-feed">
+        <div class="asset-feed">
           <div 
-            v-for="clip in filteredClips" 
-            :key="clip.id"
-            class="clip-card"
-            :class="{ 'selected': selectedClip && selectedClip.id === clip.id }"
-            @click="selectClip(clip)"
+            v-for="asset in filteredAssets" 
+            :key="asset.id"
+            class="asset-card"
+            :class="{ 'selected': selectedAsset && selectedAsset.id === asset.id }"
+            @click="selectAsset(asset)"
           >
-            <div class="clip-card-header">
-              <span class="scene-badge">{{ clip.scene }} • Take {{ clip.take }}</span>
-              <span class="status-pill" :class="'status-' + clip.status.toLowerCase()">
-                {{ formatStatus(clip.status) }}
+            <div class="asset-card-header">
+              <span class="scene-badge">{{ asset.sceneId }} • Take {{ asset.takeNumber }}</span>
+              <span class="status-pill" :class="'status-' + asset.status.toLowerCase()">
+                {{ formatStatus(asset.status) }}
               </span>
             </div>
 
-            <div class="clip-title">{{ clip.title }}</div>
+            <div class="asset-title">{{ asset.title }}</div>
 
-            <div class="clip-metadata">
-              <span>📼 {{ clip.cameraRoll }}</span>
-              <span>⏱️ {{ clip.duration }}</span>
-              <span>🎞️ {{ clip.fps }} fps</span>
-              <span>💬 {{ (clip.notes || []).length }} notes</span>
+            <div class="s3-path">
+              <span>🗄️ {{ asset.s3BucketUrl }}</span>
             </div>
 
-            <div v-if="clip.scriptDialogue" class="dialogue-snippet">
-              "{{ clip.scriptDialogue }}"
+            <div v-if="asset.processedS3Url" class="s3-path burned-path">
+              <span>⚡ {{ asset.processedS3Url }}</span>
             </div>
 
-            <div class="clip-card-actions">
+            <div class="asset-metadata">
+              <span>📼 {{ asset.cameraRoll }}</span>
+              <span>⏱️ {{ formatSeconds(asset.durationSeconds) }}</span>
+              <span>🎞️ {{ asset.fps }} fps</span>
+              <span>💬 {{ (asset.comments || []).length }} notes</span>
+            </div>
+
+            <div v-if="asset.scriptDialogue" class="dialogue-snippet">
+              "{{ asset.scriptDialogue }}"
+            </div>
+
+            <div class="asset-card-actions">
               <button 
-                v-if="clip.status === 'INGESTED'" 
+                v-if="asset.status === 'UPLOADED'" 
                 class="btn-action btn-burnin" 
-                @click.stop="triggerBurnIn(clip)"
-                title="Simulate FFmpeg burning script dialogue into proxy file"
+                @click.stop="triggerBurnIn(asset)"
+                title="Simulate FFmpeg subtitle burn-in worker"
               >
-                ⚡ Burn-In Script
+                ⚡ Run Script Burn-In
               </button>
 
               <button 
-                v-else-if="clip.status === 'IN_REVIEW'" 
+                v-else-if="asset.status === 'READY_FOR_REVIEW'" 
                 class="btn-action btn-approve" 
-                @click.stop="updateStatus(clip, 'APPROVED')"
-                title="Director Lock"
+                @click.stop="updateStatus(asset, 'APPROVED')"
+                title="Picture Lock"
               >
                 🔒 Picture Lock
               </button>
 
               <button 
                 class="btn-action-del" 
-                @click.stop="deleteClip(clip.id, clip.title)"
-                title="Delete Clip"
+                @click.stop="deleteAsset(asset.id, asset.title)"
+                title="Delete Asset"
               >
                 🗑️
               </button>
             </div>
           </div>
 
-          <div v-if="filteredClips.length === 0" class="empty-bin">
-            No footage clips match your filter.
+          <div v-if="filteredAssets.length === 0" class="empty-bin">
+            No footage assets match your search filter.
           </div>
         </div>
       </section>
 
       <!-- Right: Director Review Monitor & Timecoded Notes -->
       <section class="review-panel">
-        <div v-if="selectedClip" class="monitor-wrapper">
-          <!-- Mock Cinema Viewport -->
+        <div v-if="selectedAsset" class="monitor-wrapper">
+          <!-- Interactive Cinema Viewport -->
           <div class="cinema-viewport">
             <div class="viewport-overlay-top">
-              <span class="rec-dot"></span>
-              <span class="tc-display">TC: {{ mockTimecode }}</span>
-              <span class="lens-tag">{{ selectedClip.scene }} | TK {{ selectedClip.take }}</span>
+              <div class="rec-indicator">
+                <span class="rec-dot" :class="{ 'playing': isPlaying }"></span>
+                <span>{{ isPlaying ? 'PLAY' : 'PAUSE' }}</span>
+              </div>
+              <span class="tc-display">{{ formattedCurrentTimecode }}</span>
+              <span class="lens-tag">{{ selectedAsset.sceneId }} | TK {{ selectedAsset.takeNumber }}</span>
             </div>
 
             <div class="viewport-screen">
-              <div class="cinema-title">{{ selectedClip.title }}</div>
-              <div class="cinema-roll">{{ selectedClip.cameraRoll }} • 24.00 FPS • PROXY 1080p</div>
+              <div class="cinema-title">{{ selectedAsset.title }}</div>
+              <div class="cinema-roll">{{ selectedAsset.cameraRoll }} • {{ selectedAsset.fps }} FPS • 1080p Proxy</div>
 
-              <!-- Subtitle Dialogue Burn-In Display -->
+              <!-- Script Subtitle Dialogue Burn-In -->
               <div class="burned-subtitle">
-                <span class="burn-tag">SCRIPT BURN-IN</span>
-                <p>{{ selectedClip.scriptDialogue || 'No dialogue assigned to this take.' }}</p>
+                <span class="burn-tag">
+                  {{ selectedAsset.processedS3Url ? '⚡ SCRIPT BURNED IN' : 'RAW WORK PROXY' }}
+                </span>
+                <p>{{ selectedAsset.scriptDialogue || 'No screenplay dialogue assigned.' }}</p>
               </div>
             </div>
 
-            <div class="viewport-timeline">
-              <div class="timeline-bar">
-                <div class="timeline-progress" style="width: 42%;"></div>
-                <div class="timeline-scrubber" style="left: 42%;"></div>
-              </div>
+            <!-- Video Scrubber & Play Controls -->
+            <div class="viewport-controls">
+              <button class="btn-play" @click="togglePlay">
+                {{ isPlaying ? '⏸️ Pause' : '▶️ Play Cut' }}
+              </button>
+              <input 
+                type="range" 
+                min="0" 
+                :max="selectedAsset.durationSeconds || 150" 
+                v-model.number="currentSeconds" 
+                class="scrubber-slider" 
+              />
+              <span class="duration-tag">
+                {{ formatSeconds(currentSeconds) }} / {{ formatSeconds(selectedAsset.durationSeconds) }}
+              </span>
             </div>
           </div>
 
-          <!-- Timecoded Feedback Panel -->
+          <!-- Timecoded Feedback Collaboration Panel -->
           <div class="notes-panel">
             <div class="notes-header">
               <div>
-                <h3 class="notes-title">Timecoded Director & Crew Feedback</h3>
-                <p class="notes-sub">Frame-accurate feedback linked to this scene cut</p>
+                <h3 class="notes-title">Timecoded Collaboration Thread</h3>
+                <p class="notes-sub">Director, Editor, Sound Supervisor & Colorist Notes</p>
               </div>
-              <button class="btn-add-note" @click="showAddNoteModal = true">
-                + Drop Timecode Note
+              <button class="btn-add-note" @click="openAddNoteModal">
+                + Drop Note @ {{ formattedCurrentTimecode }}
               </button>
             </div>
 
             <!-- Notes List -->
             <div class="notes-stream">
               <div 
-                v-for="note in (selectedClip.notes || [])" 
+                v-for="note in (selectedAsset.comments || [])" 
                 :key="note.id" 
                 class="note-item"
+                @click="jumpToTimecode(note.timestampSeconds)"
               >
-                <div class="note-timecode">{{ note.timecode }}</div>
+                <div class="note-timecode" title="Click to jump player to this timecode">
+                  {{ note.timecode }}
+                </div>
                 <div class="note-body">
                   <div class="note-meta">
-                    <span class="dept-badge" :class="'dept-' + note.department.toLowerCase()">
+                    <span class="dept-badge" :class="'dept-' + (note.department || 'editorial').toLowerCase()">
                       {{ note.department }}
                     </span>
-                    <span class="author-tag">{{ note.author }}</span>
+                    <span class="author-tag">{{ note.userId }}</span>
                   </div>
-                  <div class="note-text">{{ note.comment }}</div>
+                  <div class="note-text">{{ note.commentText }}</div>
                 </div>
+                <button 
+                  class="btn-note-del" 
+                  @click.stop="deleteComment(note.id)" 
+                  title="Delete note"
+                >
+                  ✕
+                </button>
               </div>
 
-              <div v-if="!selectedClip.notes || selectedClip.notes.length === 0" class="empty-notes">
-                No review notes on this clip yet. Click <strong>+ Drop Timecode Note</strong> to leave feedback.
+              <div v-if="!selectedAsset.comments || selectedAsset.comments.length === 0" class="empty-notes">
+                No time-coded feedback on this clip yet. Click <strong>+ Drop Note</strong> to leave a note at the current playhead position.
               </div>
             </div>
           </div>
@@ -230,76 +303,81 @@
 
         <div v-else class="no-selection-state">
           <div class="film-reel-icon">🎬</div>
-          <h3>Select a Footage Clip from the Bin</h3>
-          <p>Choose any clip on the left to review its proxy, inspect dialogue subtitles, and manage time-coded feedback.</p>
+          <h3>Select a Footage Asset from the Bin</h3>
+          <p>Choose any clip on the left to review its proxy, inspect dialogue subtitles, and drop time-coded feedback.</p>
         </div>
       </section>
     </div>
 
-    <!-- Modal: Ingest New Footage Clip -->
+    <!-- Modal: Ingest New Footage Asset (Service 1) -->
     <div v-if="showIngestModal" class="modal-overlay" @click.self="showIngestModal = false">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>Ingest Footage Take</h3>
+          <h3>Ingest Raw Footage Asset (Service 1)</h3>
           <button class="modal-close" @click="showIngestModal = false">✕</button>
         </div>
-        <form @submit.prevent="submitIngestClip">
+        <form @submit.prevent="submitIngestAsset">
           <div class="form-row">
             <div class="form-group flex-2">
-              <label>Clip / Scene Title</label>
-              <input v-model="newClip.title" type="text" required placeholder="e.g. Warehouse Ambush Wide" />
+              <label>Scene / Take Title</label>
+              <input v-model="newAsset.title" type="text" required placeholder="e.g. Alley Shootout Head-On" />
             </div>
             <div class="form-group flex-1">
-              <label>Scene #</label>
-              <input v-model="newClip.scene" type="text" required placeholder="Scene 18A" />
+              <label>Scene ID</label>
+              <input v-model="newAsset.sceneId" type="text" required placeholder="Scene 14B" />
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group flex-1">
               <label>Take #</label>
-              <input v-model.number="newClip.take" type="number" required min="1" />
+              <input v-model.number="newAsset.takeNumber" type="number" required min="1" />
             </div>
             <div class="form-group flex-1">
               <label>Camera Roll</label>
-              <input v-model="newClip.cameraRoll" type="text" required placeholder="Roll A-05" />
+              <input v-model="newAsset.cameraRoll" type="text" required placeholder="Roll A-04" />
             </div>
             <div class="form-group flex-1">
-              <label>Duration</label>
-              <input v-model="newClip.duration" type="text" placeholder="02:15" />
+              <label>Duration (sec)</label>
+              <input v-model.number="newAsset.durationSeconds" type="number" required min="10" />
             </div>
           </div>
 
           <div class="form-group">
-            <label>Script Dialogue (for Automatic Burn-In)</label>
+            <label>Object Storage Proxy Path (MinIO / S3)</label>
+            <input v-model="newAsset.s3BucketUrl" type="text" placeholder="s3://collabcut-raw/scene14b_tk3.mp4" />
+          </div>
+
+          <div class="form-group">
+            <label>Script Screenplay Dialogue (for Burn-In)</label>
             <textarea 
-              v-model="newClip.scriptDialogue" 
+              v-model="newAsset.scriptDialogue" 
               rows="3" 
-              placeholder='e.g. DETECTIVE: "Where were you on the night of the 14th?"'
+              placeholder='e.g. MARCUS: "If we leave now, there is no turning back."'
             ></textarea>
           </div>
 
           <div class="modal-footer">
             <button type="button" class="btn-cancel" @click="showIngestModal = false">Cancel</button>
             <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Ingesting...' : 'Ingest Clip' }}
+              {{ submitting ? 'Ingesting...' : 'Ingest & Emit Event' }}
             </button>
           </div>
         </form>
       </div>
     </div>
 
-    <!-- Modal: Add Timecoded Note -->
+    <!-- Modal: Drop Timecoded Note (Service 3) -->
     <div v-if="showAddNoteModal" class="modal-overlay" @click.self="showAddNoteModal = false">
       <div class="modal-box">
         <div class="modal-header">
-          <h3>Drop Timecoded Note</h3>
+          <h3>Drop Timecoded Feedback Note (Service 3)</h3>
           <button class="modal-close" @click="showAddNoteModal = false">✕</button>
         </div>
         <form @submit.prevent="submitAddNote">
           <div class="form-row">
             <div class="form-group flex-1">
-              <label>Timecode (HH:MM:SS:FF)</label>
+              <label>Timecode</label>
               <input v-model="newNote.timecode" type="text" required placeholder="00:01:24:12" />
             </div>
             <div class="form-group flex-1">
@@ -315,23 +393,23 @@
 
           <div class="form-group">
             <label>Author / Role</label>
-            <input v-model="newNote.author" type="text" placeholder="e.g. Director Nolan" />
+            <input v-model="newNote.userId" type="text" placeholder="Director Nolan" />
           </div>
 
           <div class="form-group">
-            <label>Director / Review Note</label>
+            <label>Feedback Message</label>
             <textarea 
-              v-model="newNote.comment" 
+              v-model="newNote.commentText" 
               rows="3" 
               required 
-              placeholder="e.g. Trim 4 frames from head of take before Elena turns around."
+              placeholder="e.g. Trim 6 frames off head of take. The pause feels too prolonged."
             ></textarea>
           </div>
 
           <div class="modal-footer">
             <button type="button" class="btn-cancel" @click="showAddNoteModal = false">Cancel</button>
             <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Posting...' : 'Save Timecoded Note' }}
+              {{ submitting ? 'Saving...' : 'Save Note to PostgreSQL' }}
             </button>
           </div>
         </form>
@@ -340,38 +418,45 @@
 
     <!-- Footer -->
     <footer class="studio-footer">
-      <span>CollabCut: Independent Film Post-Production Tracker • Podman + Minikube • PostgreSQL 16</span>
+      <span>CollabCut: Independent Film Post-Production Tracker • Kubernetes + Minikube • Podman Driver</span>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
-const clips = ref([]);
-const selectedClip = ref(null);
+const assets = ref([]);
+const events = ref([]);
+const selectedAsset = ref(null);
 const loading = ref(false);
 const submitting = ref(false);
 const searchQuery = ref('');
 const filterStatus = ref('ALL');
 const showIngestModal = ref(false);
 const showAddNoteModal = ref(false);
-const mockTimecode = ref('00:01:24:18');
+const showEventFeed = ref(false);
 
-const newClip = ref({
+const isPlaying = ref(false);
+const currentSeconds = ref(74);
+let playInterval = null;
+
+const newAsset = ref({
   title: '',
-  scene: '',
-  take: 1,
+  sceneId: '',
+  takeNumber: 1,
   cameraRoll: 'Roll A-01',
-  duration: '02:30',
+  durationSeconds: 150,
+  s3BucketUrl: '',
   scriptDialogue: ''
 });
 
 const newNote = ref({
-  timecode: '00:01:24:12',
-  author: 'Director',
+  timecode: '00:01:14:08',
+  timestampSeconds: 74,
+  userId: 'Director Nolan',
   department: 'EDITORIAL',
-  comment: ''
+  commentText: ''
 });
 
 const toast = ref({
@@ -382,73 +467,117 @@ const toast = ref({
 
 function showToast(msg, type = 'success') {
   toast.value = { show: true, message: msg, type };
-  setTimeout(() => {
-    toast.value.show = false;
-  }, 4000);
+  setTimeout(() => { toast.value.show = false; }, 4000);
 }
 
-async function fetchClips() {
-  loading.value = true;
+// Convert seconds to Timecode HH:MM:SS:FF
+const formattedCurrentTimecode = computed(() => {
+  const sec = currentSeconds.value || 0;
+  const hrs = Math.floor(sec / 3600).toString().padStart(2, '0');
+  const mins = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  const frames = '12';
+  return `${hrs}:${mins}:${s}:${frames}`;
+});
+
+function togglePlay() {
+  isPlaying.value = !isPlaying.value;
+  if (isPlaying.value) {
+    playInterval = setInterval(() => {
+      const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
+      if (currentSeconds.value >= max) {
+        currentSeconds.value = 0;
+      } else {
+        currentSeconds.value++;
+      }
+    }, 1000);
+  } else {
+    clearInterval(playInterval);
+  }
+}
+
+function jumpToTimecode(sec) {
+  currentSeconds.value = sec;
+}
+
+function openAddNoteModal() {
+  newNote.value.timecode = formattedCurrentTimecode.value;
+  newNote.value.timestampSeconds = currentSeconds.value;
+  showAddNoteModal.value = true;
+}
+
+async function fetchAssets() {
   try {
-    const res = await fetch('/api/clips');
+    const res = await fetch('/api/assets');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    clips.value = data;
+    assets.value = data;
 
-    // Preserve selection
-    if (selectedClip.value) {
-      selectedClip.value = clips.value.find(c => c.id === selectedClip.value.id) || clips.value[0] || null;
-    } else if (clips.value.length > 0) {
-      selectedClip.value = clips.value[0];
+    if (selectedAsset.value) {
+      selectedAsset.value = assets.value.find(a => a.id === selectedAsset.value.id) || assets.value[0] || null;
+    } else if (assets.value.length > 0) {
+      selectedAsset.value = assets.value[0];
     }
   } catch (err) {
-    showToast(`Failed to load footage: ${err.message}`, 'error');
-  } finally {
-    loading.value = false;
+    console.error('Fetch assets failed:', err);
+  }
+}
+
+async function fetchEvents() {
+  try {
+    const res = await fetch('/api/events');
+    if (res.ok) {
+      events.value = await res.json();
+    }
+  } catch (err) {
+    console.error('Fetch events failed:', err);
   }
 }
 
 async function fetchAll() {
-  await fetchClips();
+  loading.value = true;
+  await Promise.all([fetchAssets(), fetchEvents()]);
+  loading.value = false;
 }
 
-function selectClip(clip) {
-  selectedClip.value = clip;
+function selectAsset(asset) {
+  selectedAsset.value = asset;
+  currentSeconds.value = 0;
 }
 
-async function triggerBurnIn(clip) {
+async function triggerBurnIn(asset) {
   try {
-    const res = await fetch(`/api/clips/${clip.id}/burn-in`, { method: 'POST' });
+    const res = await fetch(`/api/assets/${asset.id}/burn-in`, { method: 'POST' });
     if (!res.ok) throw new Error(`Burn-in failed: ${res.status}`);
-    showToast(`Script dialogue burned into proxy for ${clip.scene}. Sent to Review!`, 'success');
-    await fetchClips();
+    showToast(`Worker burned dialogue into proxy! Emitted 'footage.processed'. Ready for Review!`, 'success');
+    await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-async function updateStatus(clip, newStatus) {
+async function updateStatus(asset, newStatus) {
   try {
-    const res = await fetch(`/api/clips/${clip.id}/status`, {
+    const res = await fetch(`/api/assets/${asset.id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
     if (!res.ok) throw new Error(`Update failed: ${res.status}`);
-    showToast(`${clip.scene} locked! Status updated to ${newStatus}.`, 'success');
-    await fetchClips();
+    showToast(`${asset.sceneId} locked! Status updated to ${newStatus}.`, 'success');
+    await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-async function submitIngestClip() {
+async function submitIngestAsset() {
   submitting.value = true;
   try {
-    const res = await fetch('/api/clips', {
+    const res = await fetch('/api/assets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newClip.value)
+      body: JSON.stringify(newAsset.value)
     });
 
     if (!res.ok) {
@@ -457,11 +586,11 @@ async function submitIngestClip() {
     }
 
     const created = await res.json();
-    showToast(`Take ${created.scene} Ingested successfully into PostgreSQL!`, 'success');
-    newClip.value = { title: '', scene: '', take: 1, cameraRoll: 'Roll A-01', duration: '02:30', scriptDialogue: '' };
+    showToast(`Asset '${created.sceneId}' Ingested! Emitted 'footage.uploaded' event.`, 'success');
+    newAsset.value = { title: '', sceneId: '', takeNumber: 1, cameraRoll: 'Roll A-01', durationSeconds: 150, s3BucketUrl: '', scriptDialogue: '' };
     showIngestModal.value = false;
-    await fetchClips();
-    selectedClip.value = created;
+    await fetchAll();
+    selectedAsset.value = created;
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -470,13 +599,22 @@ async function submitIngestClip() {
 }
 
 async function submitAddNote() {
-  if (!selectedClip.value) return;
+  if (!selectedAsset.value) return;
   submitting.value = true;
   try {
-    const res = await fetch(`/api/clips/${selectedClip.value.id}/notes`, {
+    const payload = {
+      asset_id: selectedAsset.value.id,
+      timestamp_seconds: newNote.value.timestampSeconds,
+      timecode: newNote.value.timecode,
+      user_id: newNote.value.userId,
+      department: newNote.value.department,
+      comment_text: newNote.value.commentText
+    };
+
+    const res = await fetch('/api/comments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newNote.value)
+      body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
@@ -484,10 +622,10 @@ async function submitAddNote() {
       throw new Error(err.error || `Error ${res.status}`);
     }
 
-    showToast(`Timecoded note at ${newNote.value.timecode} saved to PostgreSQL!`, 'success');
-    newNote.value = { timecode: '00:01:24:12', author: 'Director', department: 'EDITORIAL', comment: '' };
+    showToast(`Timecoded note saved to PostgreSQL! Emitted 'comment.created'.`, 'success');
+    newNote.value.commentText = '';
     showAddNoteModal.value = false;
-    await fetchClips();
+    await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -495,67 +633,97 @@ async function submitAddNote() {
   }
 }
 
-async function deleteClip(id, title) {
-  if (!confirm(`Are you sure you want to delete clip '${title}' and its feedback notes from database?`)) return;
+async function deleteAsset(id, title) {
+  if (!confirm(`Are you sure you want to delete asset '${title}' from PostgreSQL?`)) return;
 
   try {
-    const res = await fetch(`/api/clips/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-    showToast(`Clip deleted from PostgreSQL.`, 'success');
-    await fetchClips();
+    showToast(`Asset deleted from PostgreSQL.`, 'success');
+    await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-const filteredClips = computed(() => {
-  return clips.value.filter(c => {
-    const query = searchQuery.value.toLowerCase();
+async function deleteComment(id) {
+  try {
+    const res = await fetch(`/api/comments/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Delete failed`);
+    showToast(`Note deleted.`, 'success');
+    await fetchAll();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+const filteredAssets = computed(() => {
+  return assets.value.filter(a => {
+    const q = searchQuery.value.toLowerCase();
     const matchesSearch = 
-      c.title.toLowerCase().includes(query) ||
-      c.scene.toLowerCase().includes(query) ||
-      c.cameraRoll.toLowerCase().includes(query);
-    const matchesFilter = filterStatus.value === 'ALL' || c.status === filterStatus.value;
+      a.title.toLowerCase().includes(q) ||
+      a.sceneId.toLowerCase().includes(q) ||
+      a.cameraRoll.toLowerCase().includes(q);
+    const matchesFilter = filterStatus.value === 'ALL' || a.status === filterStatus.value;
     return matchesSearch && matchesFilter;
   });
 });
 
-const totalNotesCount = computed(() => {
-  return clips.value.reduce((acc, c) => acc + (c.notes ? c.notes.length : 0), 0);
+const totalCommentsCount = computed(() => {
+  return assets.value.reduce((acc, a) => acc + (a.comments ? a.comments.length : 0), 0);
 });
 
 function countStatus(st) {
-  return clips.value.filter(c => c.status === st).length;
+  return assets.value.filter(a => a.status === st).length;
 }
 
 function formatStatus(st) {
   switch (st) {
-    case 'INGESTED': return 'Ingested';
-    case 'SCRIPT_BURN_IN': return 'Script Burn-In';
-    case 'IN_REVIEW': return 'In Review';
+    case 'UPLOADED': return 'Uploaded';
+    case 'PROCESSING_BURN_IN': return 'Processing';
+    case 'READY_FOR_REVIEW': return 'Ready for Review';
     case 'APPROVED': return 'Picture Lock';
     default: return st;
   }
 }
 
+function formatSeconds(sec) {
+  if (!sec && sec !== 0) return '00:00';
+  const m = Math.floor(sec / 60).toString().padStart(2, '0');
+  const s = (sec % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString();
+}
+
+function formatPayload(raw) {
+  try {
+    return JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    return raw;
+  }
+}
+
 onMounted(() => {
   fetchAll();
-  // Simulate timecode ticking
-  setInterval(() => {
-    const frames = Math.floor(Math.random() * 24).toString().padStart(2, '0');
-    mockTimecode.value = `00:01:24:${frames}`;
-  }, 1000);
+});
+
+onUnmounted(() => {
+  if (playInterval) clearInterval(playInterval);
 });
 </script>
 
 <style scoped>
 .collabcut-app {
-  max-width: 1400px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
   color: #f3f4f6;
   font-family: 'Plus Jakarta Sans', sans-serif;
 }
@@ -568,13 +736,13 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: 1.25rem;
+  padding-bottom: 1rem;
 }
 
 .studio-brand {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .clapper-icon {
@@ -599,37 +767,21 @@ onMounted(() => {
   color: #9ca3af;
 }
 
-.project-tag em {
-  color: #f3f4f6;
-  font-style: normal;
-  font-weight: 600;
-}
-
 .header-controls {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.k8s-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #111827;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 0.45rem 0.85rem;
-  border-radius: 9999px;
+.btn-event-feed {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  color: #22d3ee;
+  padding: 0.5rem 0.85rem;
+  border-radius: 6px;
   font-size: 0.8rem;
-  font-family: 'JetBrains Mono', monospace;
-  color: #9ca3af;
-}
-
-.live-pulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .btn-ingest {
@@ -641,12 +793,6 @@ onMounted(() => {
   font-weight: 700;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-ingest:hover {
-  filter: brightness(1.15);
-  transform: translateY(-1px);
 }
 
 .btn-icon {
@@ -662,13 +808,69 @@ onMounted(() => {
   animation: spin 1s linear infinite;
   display: inline-block;
 }
-
 @keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* Architecture Banner */
+.arch-banner {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.arch-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 0.05em;
+}
+
+.arch-flow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.arch-node {
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.node-title { font-size: 0.8rem; font-weight: 700; color: #fbbf24; }
+.node-sub { font-size: 0.65rem; color: #9ca3af; font-family: 'JetBrains Mono', monospace; }
+
+.arch-arrow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.event-tag {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+}
 
 /* KPI Grid */
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 1rem;
 }
 
@@ -687,7 +889,6 @@ onMounted(() => {
 .kpi-card:hover, .kpi-card.active {
   border-color: #f59e0b;
   background: rgba(245, 158, 11, 0.08);
-  transform: translateY(-2px);
 }
 
 .kpi-icon {
@@ -696,9 +897,7 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
 }
-
 .ingest-color { background: rgba(59, 130, 246, 0.15); }
-.burnin-color { background: rgba(245, 158, 11, 0.15); }
 .review-color { background: rgba(168, 85, 247, 0.15); }
 .locked-color { background: rgba(16, 185, 129, 0.15); }
 .notes-color { background: rgba(6, 182, 212, 0.15); }
@@ -708,13 +907,7 @@ onMounted(() => {
   font-weight: 800;
   font-family: 'JetBrains Mono', monospace;
 }
-
-.kpi-label {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  text-transform: uppercase;
-  font-weight: 600;
-}
+.kpi-label { font-size: 0.75rem; color: #9ca3af; text-transform: uppercase; font-weight: 600; }
 
 /* Toast */
 .studio-toast {
@@ -726,19 +919,78 @@ onMounted(() => {
 .studio-toast.success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #34d399; }
 .studio-toast.error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; }
 
-/* Workspace Split Layout */
+/* Event Broker Drawer */
+.event-drawer {
+  background: #030712;
+  border: 1px solid #06b6d4;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.7);
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.drawer-title { font-size: 0.95rem; font-weight: 700; color: #22d3ee; }
+.btn-close-sm { background: transparent; border: none; color: #9ca3af; cursor: pointer; }
+
+.event-list {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.event-card {
+  min-width: 280px;
+  background: #111827;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 0.65rem;
+}
+
+.event-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+
+.event-badge {
+  background: rgba(6, 182, 212, 0.2);
+  color: #22d3ee;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+}
+
+.event-time { font-size: 0.65rem; color: #6b7280; font-family: 'JetBrains Mono', monospace; }
+
+.event-card pre {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.3;
+}
+
+/* Split Workspace */
 .studio-workspace {
   display: grid;
-  grid-template-columns: 440px 1fr;
+  grid-template-columns: 460px 1fr;
   gap: 1.5rem;
-  min-height: 650px;
+  min-height: 680px;
 }
 
 @media (max-width: 1024px) {
   .studio-workspace { grid-template-columns: 1fr; }
 }
 
-/* Left Bin Panel */
+/* Bin Panel */
 .bin-panel {
   background: rgba(17, 24, 39, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -756,21 +1008,8 @@ onMounted(() => {
   gap: 0.75rem;
 }
 
-.bin-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-weight: 700;
-  font-size: 0.95rem;
-}
-
-.count-pill {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.15rem 0.5rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-family: 'JetBrains Mono', monospace;
-}
+.bin-title { display: flex; justify-content: space-between; font-weight: 700; }
+.count-pill { background: rgba(255, 255, 255, 0.1); padding: 0.15rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; }
 
 .bin-search input {
   width: 100%;
@@ -783,16 +1022,16 @@ onMounted(() => {
   outline: none;
 }
 
-.clip-feed {
+.asset-feed {
   padding: 1rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  max-height: 700px;
+  max-height: 720px;
 }
 
-.clip-card {
+.asset-card {
   background: rgba(15, 23, 42, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
@@ -801,56 +1040,58 @@ onMounted(() => {
   transition: all 0.2s;
 }
 
-.clip-card:hover {
+.asset-card:hover {
   border-color: rgba(245, 158, 11, 0.5);
   background: rgba(30, 41, 59, 0.9);
 }
 
-.clip-card.selected {
+.asset-card.selected {
   border-color: #f59e0b;
   background: rgba(245, 158, 11, 0.07);
   box-shadow: 0 0 15px rgba(245, 158, 11, 0.15);
 }
 
-.clip-card-header {
+.asset-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.35rem;
 }
 
-.scene-badge {
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: #fbbf24;
-}
+.scene-badge { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 0.8rem; color: #fbbf24; }
 
 .status-pill {
-  font-size: 0.7rem;
+  font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
   padding: 0.15rem 0.45rem;
   border-radius: 4px;
 }
-.status-ingested { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
-.status-script_burn_in { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
-.status-in_review { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+.status-uploaded { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+.status-ready_for_review { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
 .status-approved { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 
-.clip-title {
-  font-weight: 600;
-  font-size: 0.95rem;
-  margin-bottom: 0.4rem;
+.asset-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 0.35rem; }
+
+.s3-path {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.clip-metadata {
+.burned-path { color: #f59e0b; font-weight: 600; }
+
+.asset-metadata {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   font-size: 0.75rem;
   color: #9ca3af;
-  margin-bottom: 0.5rem;
+  margin: 0.4rem 0;
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -864,7 +1105,7 @@ onMounted(() => {
   margin-bottom: 0.6rem;
 }
 
-.clip-card-actions {
+.asset-card-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -874,7 +1115,7 @@ onMounted(() => {
 .btn-action {
   font-size: 0.75rem;
   font-weight: 700;
-  padding: 0.3rem 0.65rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 4px;
   border: none;
   cursor: pointer;
@@ -884,14 +1125,7 @@ onMounted(() => {
 .btn-action-del { background: transparent; border: none; cursor: pointer; opacity: 0.6; }
 .btn-action-del:hover { opacity: 1; }
 
-.empty-bin {
-  text-align: center;
-  color: #6b7280;
-  padding: 2rem;
-  font-size: 0.85rem;
-}
-
-/* Right Review Panel */
+/* Right Review Monitor */
 .review-panel {
   background: rgba(17, 24, 39, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -906,11 +1140,11 @@ onMounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 1.25rem;
   position: relative;
-  min-height: 280px;
+  min-height: 290px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background-image: radial-gradient(circle at center, rgba(30, 41, 59, 0.4) 0%, #000000 80%);
+  background-image: radial-gradient(circle at center, rgba(30, 41, 59, 0.5) 0%, #000000 80%);
 }
 
 .viewport-overlay-top {
@@ -919,48 +1153,36 @@ onMounted(() => {
   align-items: center;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85rem;
-  color: #e5e7eb;
+}
+
+.rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
 
 .rec-dot {
   width: 10px;
   height: 10px;
-  background: #ef4444;
+  background: #64748b;
   border-radius: 50%;
+}
+.rec-dot.playing {
+  background: #ef4444;
   box-shadow: 0 0 10px #ef4444;
-  animation: pulse 1.5s infinite;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
+.tc-display { font-weight: 700; color: #fbbf24; font-size: 1rem; }
 
-.tc-display {
-  font-weight: 700;
-  color: #fbbf24;
-}
-
-.viewport-screen {
-  text-align: center;
-  padding: 1.5rem 0;
-}
-
-.cinema-title {
-  font-size: 1.4rem;
-  font-weight: 800;
-  margin-bottom: 0.25rem;
-}
-
-.cinema-roll {
-  font-size: 0.8rem;
-  color: #6b7280;
-  font-family: 'JetBrains Mono', monospace;
-}
+.viewport-screen { text-align: center; padding: 1.5rem 0; }
+.cinema-title { font-size: 1.4rem; font-weight: 800; }
+.cinema-roll { font-size: 0.8rem; color: #64748b; font-family: 'JetBrains Mono', monospace; }
 
 .burned-subtitle {
   margin: 1.25rem auto 0 auto;
-  max-width: 600px;
+  max-width: 620px;
   background: rgba(0, 0, 0, 0.85);
   border: 1px dashed rgba(245, 158, 11, 0.4);
   border-radius: 6px;
@@ -976,35 +1198,37 @@ onMounted(() => {
   margin-bottom: 0.3rem;
 }
 
-.burned-subtitle p {
-  font-size: 0.95rem;
-  color: #fef08a;
-  font-style: italic;
+.burned-subtitle p { font-size: 0.95rem; color: #fef08a; font-style: italic; }
+
+.viewport-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.timeline-bar {
-  height: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-  position: relative;
+.btn-play {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.scrubber-slider {
+  flex: 1;
+  accent-color: #f59e0b;
   cursor: pointer;
 }
 
-.timeline-progress {
-  height: 100%;
-  background: #f59e0b;
-  border-radius: 3px;
-}
-
-.timeline-scrubber {
-  position: absolute;
-  top: -4px;
-  width: 14px;
-  height: 14px;
-  background: white;
-  border-radius: 50%;
-  transform: translateX(-50%);
-  box-shadow: 0 0 8px rgba(0,0,0,0.8);
+.duration-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  white-space: nowrap;
 }
 
 /* Notes Section */
@@ -1036,16 +1260,12 @@ onMounted(() => {
   cursor: pointer;
 }
 
-.btn-add-note:hover {
-  background: rgba(245, 158, 11, 0.25);
-}
-
 .notes-stream {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   overflow-y: auto;
-  max-height: 320px;
+  max-height: 340px;
 }
 
 .note-item {
@@ -1055,6 +1275,13 @@ onMounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 0.85rem;
+  cursor: pointer;
+  position: relative;
+}
+
+.note-item:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .note-timecode {
@@ -1086,32 +1313,19 @@ onMounted(() => {
 .dept-sound_design { background: rgba(16, 185, 129, 0.2); color: #34d399; }
 .dept-vfx { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
 
-.author-tag {
-  font-size: 0.75rem;
-  color: #9ca3af;
-  font-weight: 600;
-}
+.author-tag { font-size: 0.75rem; color: #9ca3af; font-weight: 600; }
+.note-text { font-size: 0.85rem; color: #e5e7eb; line-height: 1.4; }
 
-.note-text {
-  font-size: 0.85rem;
-  color: #e5e7eb;
-  line-height: 1.4;
+.btn-note-del {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
 }
+.btn-note-del:hover { color: #ef4444; }
 
-.empty-notes {
-  text-align: center;
-  color: #6b7280;
-  padding: 2.5rem;
-  font-size: 0.85rem;
-}
-
-.no-selection-state {
-  margin: auto;
-  text-align: center;
-  padding: 4rem 2rem;
-  color: #6b7280;
-}
-
+.empty-notes { text-align: center; color: #64748b; padding: 2.5rem; font-size: 0.85rem; }
+.no-selection-state { margin: auto; text-align: center; padding: 4rem 2rem; color: #64748b; }
 .film-reel-icon { font-size: 3rem; margin-bottom: 1rem; }
 
 /* Modals */
@@ -1131,18 +1345,11 @@ onMounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   width: 100%;
-  max-width: 500px;
+  max-width: 520px;
   padding: 1.5rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
 }
 
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-}
-
+.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
 .modal-close { background: transparent; border: none; color: #9ca3af; font-size: 1.2rem; cursor: pointer; }
 
 .form-row { display: flex; gap: 0.75rem; }
@@ -1162,42 +1369,11 @@ onMounted(() => {
   font-size: 0.85rem;
   outline: none;
 }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
-  border-color: #f59e0b;
-}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: #f59e0b; }
 
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  margin-top: 1.5rem;
-}
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
+.btn-cancel { background: transparent; border: 1px solid rgba(255, 255, 255, 0.1); color: #9ca3af; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
+.btn-primary { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; border: none; padding: 0.55rem 1.25rem; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
 
-.btn-cancel {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #9ca3af;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-  color: white;
-  border: none;
-  padding: 0.55rem 1.25rem;
-  border-radius: 6px;
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.studio-footer {
-  text-align: center;
-  font-size: 0.8rem;
-  color: #6b7280;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
+.studio-footer { text-align: center; font-size: 0.8rem; color: #64748b; padding-top: 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
 </style>
