@@ -1,292 +1,210 @@
 <template>
   <div class="collabcut-app">
-    <!-- Studio Header -->
+    <!-- Header -->
     <header class="studio-header">
       <div class="studio-brand">
-        <div class="clapper-icon">🎬</div>
+        <span class="clapper-icon">🎬</span>
         <div>
-          <div class="brand-title">CollabCut Studio</div>
-          <div class="project-tag">
-            Event-Driven Film Post-Production Tracker • <em>"Chronicles of Dawn"</em>
-          </div>
+          <h1 class="brand-title">CollabCut</h1>
+          <p class="brand-tagline">Film Review & Script Subtitle Suite</p>
         </div>
       </div>
-      <div class="header-controls">
-        <button class="btn-event-feed" @click="showEventFeed = !showEventFeed">
-          <span>📡 Broker Stream ({{ events.length }})</span>
-        </button>
-        <button class="btn-ingest" @click="showIngestModal = true">
-          <span>+ Ingest Footage</span>
-        </button>
-        <button class="btn-icon" :disabled="loading" @click="fetchAll" title="Reload pipeline data">
+      <div class="header-actions">
+        <span class="clip-count-badge">{{ assets.length }} Clips</span>
+        <button class="btn-refresh" :disabled="loading" @click="fetchAll" title="Reload footage">
           <span :class="{ 'spin': loading }">🔄</span>
+        </button>
+        <button class="btn-primary" @click="showUploadModal = true">
+          + Add New Clip
         </button>
       </div>
     </header>
 
-    <!-- Microservices Architecture Diagram Banner -->
-    <section class="arch-banner">
-      <div class="arch-label">Decoupled Architecture Flow:</div>
-      <div class="arch-flow">
-        <div class="arch-node">
-          <span class="node-title">1. Ingest API</span>
-          <span class="node-sub">POST /api/assets</span>
-        </div>
-        <div class="arch-arrow">
-          <span class="event-tag">footage.uploaded</span>
-          <span>➔</span>
-        </div>
-        <div class="arch-node">
-          <span class="node-title">2. Burn-In Worker</span>
-          <span class="node-sub">FFmpeg Dialogue Overlay</span>
-        </div>
-        <div class="arch-arrow">
-          <span class="event-tag">footage.processed</span>
-          <span>➔</span>
-        </div>
-        <div class="arch-node">
-          <span class="node-title">3. Review API</span>
-          <span class="node-sub">PostgreSQL Timecodes</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- KPI Metrics Bar -->
-    <section class="kpi-grid">
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'ALL' }" @click="filterStatus = 'ALL'">
-        <div class="kpi-icon">🎞️</div>
-        <div>
-          <div class="kpi-num">{{ assets.length }}</div>
-          <div class="kpi-label">Total Assets</div>
-        </div>
-      </div>
-
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'UPLOADED' }" @click="filterStatus = 'UPLOADED'">
-        <div class="kpi-icon ingest-color">📥</div>
-        <div>
-          <div class="kpi-num">{{ countStatus('UPLOADED') }}</div>
-          <div class="kpi-label">Uploaded</div>
-        </div>
-      </div>
-
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'READY_FOR_REVIEW' }" @click="filterStatus = 'READY_FOR_REVIEW'">
-        <div class="kpi-icon review-color">👁️</div>
-        <div>
-          <div class="kpi-num">{{ countStatus('READY_FOR_REVIEW') }}</div>
-          <div class="kpi-label">Ready for Review</div>
-        </div>
-      </div>
-
-      <div class="kpi-card" :class="{ 'active': filterStatus === 'APPROVED' }" @click="filterStatus = 'APPROVED'">
-        <div class="kpi-icon locked-color">🔒</div>
-        <div>
-          <div class="kpi-num">{{ countStatus('APPROVED') }}</div>
-          <div class="kpi-label">Picture Lock</div>
-        </div>
-      </div>
-
-      <div class="kpi-card">
-        <div class="kpi-icon notes-color">💬</div>
-        <div>
-          <div class="kpi-num">{{ totalCommentsCount }}</div>
-          <div class="kpi-label">Timecoded Notes</div>
-        </div>
-      </div>
-    </section>
-
     <!-- Toast Notification -->
-    <div v-if="toast.show" class="studio-toast" :class="toast.type">
-      {{ toast.message }}
-    </div>
-
-    <!-- Live Event Broker Modal / Drawer -->
-    <div v-if="showEventFeed" class="event-drawer">
-      <div class="drawer-header">
-        <div class="drawer-title">
-          <span>📡 Asynchronous Message Broker Feed (RabbitMQ Log)</span>
-        </div>
-        <button class="btn-close-sm" @click="showEventFeed = false">✕</button>
+    <transition name="fade">
+      <div v-if="toast.show" class="studio-toast" :class="toast.type">
+        {{ toast.message }}
       </div>
-      <div class="event-list">
-        <div v-for="evt in events" :key="evt.id" class="event-card">
-          <div class="event-card-top">
-            <span class="event-badge">{{ evt.eventName }}</span>
-            <span class="event-time">{{ formatDate(evt.createdAt) }}</span>
-          </div>
-          <pre><code>{{ formatPayload(evt.payload) }}</code></pre>
-        </div>
-        <div v-if="events.length === 0" class="empty-events">No events emitted yet.</div>
-      </div>
-    </div>
+    </transition>
 
-    <!-- Main Studio Workspace (Split View) -->
-    <div class="studio-workspace">
-      <!-- Left: Asset Ingest Bin -->
-      <section class="bin-panel">
-        <div class="panel-topbar">
-          <div class="bin-title">
-            <span>Footage Ingest Bin</span>
+    <!-- Main Workspace -->
+    <main class="studio-grid">
+      <!-- Left: Clips List -->
+      <aside class="clips-panel">
+        <div class="panel-header">
+          <div class="panel-title-row">
+            <h2>Footage Clips</h2>
             <span class="count-pill">{{ filteredAssets.length }}</span>
           </div>
-          <div class="bin-search">
+          <div class="search-box">
+            <span class="search-icon">🔍</span>
             <input 
               v-model="searchQuery" 
               type="text" 
-              placeholder="Search scene, take, roll, title..." 
+              placeholder="Filter by scene, take, or title..." 
             />
+            <button v-if="searchQuery" class="clear-search" @click="searchQuery = ''">✕</button>
           </div>
         </div>
 
-        <div class="asset-feed">
+        <div class="clips-list">
           <div 
             v-for="asset in filteredAssets" 
             :key="asset.id"
-            class="asset-card"
+            class="clip-card"
             :class="{ 'selected': selectedAsset && selectedAsset.id === asset.id }"
             @click="selectAsset(asset)"
           >
-            <div class="asset-card-header">
-              <span class="scene-badge">{{ asset.sceneId }} • Take {{ asset.takeNumber }}</span>
-              <span class="status-pill" :class="'status-' + asset.status.toLowerCase()">
+            <div class="clip-card-header">
+              <span class="scene-tag">{{ asset.sceneId }} • Take {{ asset.takeNumber }}</span>
+              <span class="status-badge" :class="'badge-' + asset.status.toLowerCase()">
                 {{ formatStatus(asset.status) }}
               </span>
             </div>
 
-            <div class="asset-title">{{ asset.title }}</div>
+            <div class="clip-title">{{ asset.title }}</div>
 
-            <div class="s3-path">
-              <span>🗄️ {{ asset.s3BucketUrl }}</span>
-            </div>
-
-            <div v-if="asset.processedS3Url" class="s3-path burned-path">
-              <span>⚡ {{ asset.processedS3Url }}</span>
-            </div>
-
-            <div class="asset-metadata">
-              <span>📼 {{ asset.cameraRoll }}</span>
-              <span>⏱️ {{ formatSeconds(asset.durationSeconds) }}</span>
-              <span>🎞️ {{ asset.fps }} fps</span>
-              <span>💬 {{ (asset.comments || []).length }} notes</span>
-            </div>
-
-            <div v-if="asset.scriptDialogue" class="dialogue-snippet">
+            <div v-if="asset.scriptDialogue" class="clip-dialogue-preview">
               "{{ asset.scriptDialogue }}"
             </div>
 
-            <div class="asset-card-actions">
-              <button 
-                v-if="asset.status === 'UPLOADED'" 
-                class="btn-action btn-burnin" 
-                @click.stop="triggerBurnIn(asset)"
-                title="Simulate FFmpeg subtitle burn-in worker"
-              >
-                ⚡ Run Script Burn-In
-              </button>
-
-              <button 
-                v-else-if="asset.status === 'READY_FOR_REVIEW'" 
-                class="btn-action btn-approve" 
-                @click.stop="updateStatus(asset, 'APPROVED')"
-                title="Picture Lock"
-              >
-                🔒 Picture Lock
-              </button>
-
-              <button 
-                class="btn-action-del" 
-                @click.stop="deleteAsset(asset.id, asset.title)"
-                title="Delete Asset"
-              >
-                🗑️
-              </button>
+            <div class="clip-card-footer">
+              <span class="clip-meta">⏱️ {{ formatSeconds(asset.durationSeconds) }} • {{ (asset.comments || []).length }} notes</span>
+              
+              <div class="clip-actions" @click.stop>
+                <button 
+                  v-if="asset.status === 'UPLOADED'" 
+                  class="btn-burn-action" 
+                  @click="triggerBurnIn(asset)"
+                  title="Burn screenplay subtitles into video proxy"
+                >
+                  ⚡ Burn Subtitles
+                </button>
+                <button 
+                  v-else-if="asset.status === 'READY_FOR_REVIEW'" 
+                  class="btn-lock-action" 
+                  @click="updateStatus(asset, 'APPROVED')"
+                  title="Mark as Picture Locked"
+                >
+                  🔒 Lock Cut
+                </button>
+                <button 
+                  class="btn-delete-clip" 
+                  @click="deleteAsset(asset.id, asset.title)" 
+                  title="Delete Clip"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
           </div>
 
-          <div v-if="filteredAssets.length === 0" class="empty-bin">
-            No footage assets match your search filter.
+          <div v-if="filteredAssets.length === 0" class="empty-clips">
+            <p>No clips found matching "{{ searchQuery }}"</p>
           </div>
         </div>
-      </section>
+      </aside>
 
-      <!-- Right: Director Review Monitor & Timecoded Notes -->
+      <!-- Right: Cinema Player & Review Notes -->
       <section class="review-panel">
-        <div v-if="selectedAsset" class="monitor-wrapper">
-          <!-- Interactive Cinema Viewport -->
-          <div class="cinema-viewport">
-            <div class="viewport-overlay-top">
-              <div class="rec-indicator">
-                <span class="rec-dot" :class="{ 'playing': isPlaying }"></span>
-                <span>{{ isPlaying ? 'PLAY' : 'PAUSE' }}</span>
+        <div v-if="selectedAsset" class="review-container">
+          
+          <!-- Cinema Player Viewport -->
+          <div class="cinema-player">
+            <!-- Screen Top Overlay -->
+            <div class="player-top-bar">
+              <div class="playback-badge">
+                <span class="live-dot" :class="{ 'playing': isPlaying }"></span>
+                <span>{{ isPlaying ? 'PLAYING' : 'PAUSED' }}</span>
               </div>
-              <span class="tc-display">{{ formattedCurrentTimecode }}</span>
-              <span class="lens-tag">{{ selectedAsset.sceneId }} | TK {{ selectedAsset.takeNumber }}</span>
+              <div class="timecode-display">{{ formattedCurrentTimecode }}</div>
+              <div class="scene-indicator">{{ selectedAsset.sceneId }} | TK {{ selectedAsset.takeNumber }}</div>
             </div>
 
-            <div class="viewport-screen">
-              <div class="cinema-title">{{ selectedAsset.title }}</div>
-              <div class="cinema-roll">{{ selectedAsset.cameraRoll }} • {{ selectedAsset.fps }} FPS • 1080p Proxy</div>
+            <!-- Cinematic Stage -->
+            <div class="player-screen">
+              <div class="film-grid-cross"></div>
+              <div class="cinema-heading">
+                <h3>{{ selectedAsset.title }}</h3>
+                <p>{{ selectedAsset.cameraRoll }} • 24 FPS • 1080p</p>
+              </div>
 
-              <!-- Script Subtitle Dialogue Burn-In -->
-              <div class="burned-subtitle">
-                <span class="burn-tag">
-                  {{ selectedAsset.processedS3Url ? '⚡ SCRIPT BURNED IN' : 'RAW WORK PROXY' }}
+              <!-- Screenplay Dialogue Subtitle Overlay -->
+              <div class="dialogue-overlay" :class="{ 'burned': selectedAsset.processedS3Url }">
+                <span class="sub-label">
+                  {{ selectedAsset.processedS3Url ? '⚡ BURNED-IN SUBTITLE' : 'ORIGINAL SCREENPLAY' }}
                 </span>
-                <p>{{ selectedAsset.scriptDialogue || 'No screenplay dialogue assigned.' }}</p>
+                <p class="sub-text">"{{ selectedAsset.scriptDialogue || 'No screenplay dialogue assigned.' }}"</p>
               </div>
             </div>
 
-            <!-- Video Scrubber & Play Controls -->
-            <div class="viewport-controls">
-              <button class="btn-play" @click="togglePlay">
-                {{ isPlaying ? '⏸️ Pause' : '▶️ Play Cut' }}
+            <!-- Player Controls -->
+            <div class="player-controls">
+              <button class="btn-play-toggle" @click="togglePlay">
+                {{ isPlaying ? '⏸️ Pause' : '▶️ Play' }}
               </button>
               <input 
                 type="range" 
                 min="0" 
-                :max="selectedAsset.durationSeconds || 150" 
+                :max="selectedAsset.durationSeconds || 120" 
                 v-model.number="currentSeconds" 
-                class="scrubber-slider" 
+                class="cinema-scrubber" 
               />
-              <span class="duration-tag">
+              <span class="time-readout">
                 {{ formatSeconds(currentSeconds) }} / {{ formatSeconds(selectedAsset.durationSeconds) }}
               </span>
             </div>
           </div>
 
-          <!-- Timecoded Feedback Collaboration Panel -->
-          <div class="notes-panel">
-            <div class="notes-header">
-              <div>
-                <h3 class="notes-title">Timecoded Collaboration Thread</h3>
-                <p class="notes-sub">Director, Editor, Sound Supervisor & Colorist Notes</p>
-              </div>
-              <button class="btn-add-note" @click="openAddNoteModal">
-                + Drop Note @ {{ formattedCurrentTimecode }}
-              </button>
+          <!-- Instant Feedback Note Section (No Popups!) -->
+          <div class="feedback-section">
+            <div class="feedback-header">
+              <h3>Review Notes ({{ (selectedAsset.comments || []).length }})</h3>
+              <p class="hint">Type feedback below — it automatically attaches to the current playhead <strong>{{ formattedCurrentTimecode }}</strong>.</p>
             </div>
 
-            <!-- Notes List -->
-            <div class="notes-stream">
+            <!-- Inline Add Note Form -->
+            <form class="inline-note-form" @submit.prevent="submitInlineNote">
+              <div class="note-time-badge">
+                ⏱️ {{ formattedCurrentTimecode }}
+              </div>
+              <select v-model="quickDept" class="dept-select">
+                <option value="EDITORIAL">Director / Editorial</option>
+                <option value="COLOR_GRADE">Color Grade</option>
+                <option value="SOUND_DESIGN">Sound Design</option>
+                <option value="VFX">VFX</option>
+              </select>
+              <input 
+                v-model="quickNoteText" 
+                type="text" 
+                placeholder="Type note at current timecode and press Enter..." 
+                class="note-input"
+                required
+              />
+              <button type="submit" class="btn-post-note" :disabled="submitting || !quickNoteText.trim()">
+                {{ submitting ? 'Adding...' : 'Post Note' }}
+              </button>
+            </form>
+
+            <!-- Notes Timeline -->
+            <div class="notes-timeline">
               <div 
                 v-for="note in (selectedAsset.comments || [])" 
                 :key="note.id" 
-                class="note-item"
+                class="timeline-item"
                 @click="jumpToTimecode(note.timestampSeconds)"
+                title="Click to jump video to this note"
               >
-                <div class="note-timecode" title="Click to jump player to this timecode">
-                  {{ note.timecode }}
-                </div>
-                <div class="note-body">
-                  <div class="note-meta">
-                    <span class="dept-badge" :class="'dept-' + (note.department || 'editorial').toLowerCase()">
-                      {{ note.department }}
-                    </span>
-                    <span class="author-tag">{{ note.userId }}</span>
+                <div class="timeline-tc">{{ note.timecode }}</div>
+                <div class="timeline-content">
+                  <div class="timeline-meta">
+                    <span class="timeline-dept">{{ note.department }}</span>
+                    <span class="timeline-author">{{ note.userId || 'Director' }}</span>
                   </div>
-                  <div class="note-text">{{ note.commentText }}</div>
+                  <div class="timeline-text">{{ note.commentText }}</div>
                 </div>
                 <button 
-                  class="btn-note-del" 
+                  class="btn-del-note" 
                   @click.stop="deleteComment(note.id)" 
                   title="Delete note"
                 >
@@ -294,132 +212,78 @@
                 </button>
               </div>
 
-              <div v-if="!selectedAsset.comments || selectedAsset.comments.length === 0" class="empty-notes">
-                No time-coded feedback on this clip yet. Click <strong>+ Drop Note</strong> to leave a note at the current playhead position.
+              <div v-if="!selectedAsset.comments || selectedAsset.comments.length === 0" class="no-notes">
+                <span>💬 No notes for this clip yet. Play the video and post a note above!</span>
               </div>
             </div>
           </div>
+
         </div>
 
-        <div v-else class="no-selection-state">
-          <div class="film-reel-icon">🎬</div>
-          <h3>Select a Footage Asset from the Bin</h3>
-          <p>Choose any clip on the left to review its proxy, inspect dialogue subtitles, and drop time-coded feedback.</p>
+        <!-- No Selection Placeholder -->
+        <div v-else class="empty-selection">
+          <span class="large-icon">🎬</span>
+          <h3>Select a Clip to Review</h3>
+          <p>Choose any film take from the left to watch, inspect subtitles, or add feedback.</p>
         </div>
       </section>
-    </div>
+    </main>
 
-    <!-- Modal: Ingest New Footage Asset (Service 1) -->
-    <div v-if="showIngestModal" class="modal-overlay" @click.self="showIngestModal = false">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h3>Ingest Raw Footage Asset (Service 1)</h3>
-          <button class="modal-close" @click="showIngestModal = false">✕</button>
+    <!-- Modal: Add New Clip -->
+    <div v-if="showUploadModal" class="modal-backdrop" @click.self="showUploadModal = false">
+      <div class="modal-card">
+        <div class="modal-card-header">
+          <h3>Add New Footage Take</h3>
+          <button class="btn-close-modal" @click="showUploadModal = false">✕</button>
         </div>
-        <form @submit.prevent="submitIngestAsset">
-          <div class="form-row">
-            <div class="form-group flex-2">
-              <label>Scene / Take Title</label>
-              <input v-model="newAsset.title" type="text" required placeholder="e.g. Alley Shootout Head-On" />
-            </div>
-            <div class="form-group flex-1">
-              <label>Scene ID</label>
-              <input v-model="newAsset.sceneId" type="text" required placeholder="Scene 14B" />
-            </div>
-          </div>
 
+        <form @submit.prevent="submitNewClip">
           <div class="form-row">
-            <div class="form-group flex-1">
+            <div class="form-field flex-2">
+              <label>Scene & Take</label>
+              <input v-model="newClip.sceneId" type="text" placeholder="e.g. Scene 12B" required />
+            </div>
+            <div class="form-field flex-1">
               <label>Take #</label>
-              <input v-model.number="newAsset.takeNumber" type="number" required min="1" />
-            </div>
-            <div class="form-group flex-1">
-              <label>Camera Roll</label>
-              <input v-model="newAsset.cameraRoll" type="text" required placeholder="Roll A-04" />
-            </div>
-            <div class="form-group flex-1">
-              <label>Duration (sec)</label>
-              <input v-model.number="newAsset.durationSeconds" type="number" required min="10" />
+              <input v-model.number="newClip.takeNumber" type="number" min="1" required />
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Object Storage Proxy Path (MinIO / S3)</label>
-            <input v-model="newAsset.s3BucketUrl" type="text" placeholder="s3://collabcut-raw/scene14b_tk3.mp4" />
+          <div class="form-field">
+            <label>Clip Title / Description</label>
+            <input v-model="newClip.title" type="text" placeholder="e.g. Rooftop Confrontation Master" required />
           </div>
 
-          <div class="form-group">
-            <label>Script Screenplay Dialogue (for Burn-In)</label>
+          <div class="form-field">
+            <label>Script Screenplay Dialogue (for Subtitles)</label>
             <textarea 
-              v-model="newAsset.scriptDialogue" 
+              v-model="newClip.scriptDialogue" 
               rows="3" 
-              placeholder='e.g. MARCUS: "If we leave now, there is no turning back."'
+              placeholder='e.g. DETECTIVE: "Where were you at midnight?"'
+              required
             ></textarea>
           </div>
 
-          <div class="modal-footer">
-            <button type="button" class="btn-cancel" @click="showIngestModal = false">Cancel</button>
-            <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Ingesting...' : 'Ingest & Emit Event' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Modal: Drop Timecoded Note (Service 3) -->
-    <div v-if="showAddNoteModal" class="modal-overlay" @click.self="showAddNoteModal = false">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h3>Drop Timecoded Feedback Note (Service 3)</h3>
-          <button class="modal-close" @click="showAddNoteModal = false">✕</button>
-        </div>
-        <form @submit.prevent="submitAddNote">
           <div class="form-row">
-            <div class="form-group flex-1">
-              <label>Timecode</label>
-              <input v-model="newNote.timecode" type="text" required placeholder="00:01:24:12" />
+            <div class="form-field flex-1">
+              <label>Camera Roll</label>
+              <input v-model="newClip.cameraRoll" type="text" placeholder="Roll A-01" />
             </div>
-            <div class="form-group flex-1">
-              <label>Department</label>
-              <select v-model="newNote.department">
-                <option value="EDITORIAL">EDITORIAL</option>
-                <option value="COLOR_GRADE">COLOR GRADE</option>
-                <option value="SOUND_DESIGN">SOUND DESIGN</option>
-                <option value="VFX">VFX</option>
-              </select>
+            <div class="form-field flex-1">
+              <label>Duration (seconds)</label>
+              <input v-model.number="newClip.durationSeconds" type="number" min="5" required />
             </div>
           </div>
 
-          <div class="form-group">
-            <label>Author / Role</label>
-            <input v-model="newNote.userId" type="text" placeholder="Director Nolan" />
-          </div>
-
-          <div class="form-group">
-            <label>Feedback Message</label>
-            <textarea 
-              v-model="newNote.commentText" 
-              rows="3" 
-              required 
-              placeholder="e.g. Trim 6 frames off head of take. The pause feels too prolonged."
-            ></textarea>
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn-cancel" @click="showAddNoteModal = false">Cancel</button>
+          <div class="modal-card-actions">
+            <button type="button" class="btn-secondary" @click="showUploadModal = false">Cancel</button>
             <button type="submit" class="btn-primary" :disabled="submitting">
-              {{ submitting ? 'Saving...' : 'Save Note to PostgreSQL' }}
+              {{ submitting ? 'Saving...' : 'Add Clip' }}
             </button>
           </div>
         </form>
       </div>
     </div>
-
-    <!-- Footer -->
-    <footer class="studio-footer">
-      <span>CollabCut: Independent Film Post-Production Tracker • Kubernetes + Minikube • Podman Driver</span>
-    </footer>
   </div>
 </template>
 
@@ -427,47 +291,37 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 const assets = ref([]);
-const events = ref([]);
 const selectedAsset = ref(null);
 const loading = ref(false);
 const submitting = ref(false);
 const searchQuery = ref('');
-const filterStatus = ref('ALL');
-const showIngestModal = ref(false);
-const showAddNoteModal = ref(false);
-const showEventFeed = ref(false);
+const showUploadModal = ref(false);
 
+// Video scrubber state
 const isPlaying = ref(false);
-const currentSeconds = ref(74);
+const currentSeconds = ref(42);
 let playInterval = null;
 
-const newAsset = ref({
-  title: '',
+// Inline comment inputs
+const quickNoteText = ref('');
+const quickDept = ref('EDITORIAL');
+
+// New clip input
+const newClip = ref({
   sceneId: '',
   takeNumber: 1,
+  title: '',
+  scriptDialogue: '',
   cameraRoll: 'Roll A-01',
-  durationSeconds: 150,
-  s3BucketUrl: '',
-  scriptDialogue: ''
+  durationSeconds: 120,
+  s3BucketUrl: 's3://collabcut-raw/take.mp4'
 });
 
-const newNote = ref({
-  timecode: '00:01:14:08',
-  timestampSeconds: 74,
-  userId: 'Director Nolan',
-  department: 'EDITORIAL',
-  commentText: ''
-});
-
-const toast = ref({
-  show: false,
-  message: '',
-  type: 'success'
-});
-
+// Toast notification
+const toast = ref({ show: false, message: '', type: 'success' });
 function showToast(msg, type = 'success') {
   toast.value = { show: true, message: msg, type };
-  setTimeout(() => { toast.value.show = false; }, 4000);
+  setTimeout(() => { toast.value.show = false; }, 3500);
 }
 
 // Convert seconds to Timecode HH:MM:SS:FF
@@ -484,7 +338,7 @@ function togglePlay() {
   isPlaying.value = !isPlaying.value;
   if (isPlaying.value) {
     playInterval = setInterval(() => {
-      const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
+      const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 120;
       if (currentSeconds.value >= max) {
         currentSeconds.value = 0;
       } else {
@@ -498,15 +352,11 @@ function togglePlay() {
 
 function jumpToTimecode(sec) {
   currentSeconds.value = sec;
+  showToast(`Jumped playhead to ${formattedCurrentTimecode.value}`);
 }
 
-function openAddNoteModal() {
-  newNote.value.timecode = formattedCurrentTimecode.value;
-  newNote.value.timestampSeconds = currentSeconds.value;
-  showAddNoteModal.value = true;
-}
-
-async function fetchAssets() {
+async function fetchAll() {
+  loading.value = true;
   try {
     const res = await fetch('/api/assets');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -519,25 +369,10 @@ async function fetchAssets() {
       selectedAsset.value = assets.value[0];
     }
   } catch (err) {
-    console.error('Fetch assets failed:', err);
+    console.error('Fetch assets error:', err);
+  } finally {
+    loading.value = false;
   }
-}
-
-async function fetchEvents() {
-  try {
-    const res = await fetch('/api/events');
-    if (res.ok) {
-      events.value = await res.json();
-    }
-  } catch (err) {
-    console.error('Fetch events failed:', err);
-  }
-}
-
-async function fetchAll() {
-  loading.value = true;
-  await Promise.all([fetchAssets(), fetchEvents()]);
-  loading.value = false;
 }
 
 function selectAsset(asset) {
@@ -548,8 +383,8 @@ function selectAsset(asset) {
 async function triggerBurnIn(asset) {
   try {
     const res = await fetch(`/api/assets/${asset.id}/burn-in`, { method: 'POST' });
-    if (!res.ok) throw new Error(`Burn-in failed: ${res.status}`);
-    showToast(`Worker burned dialogue into proxy! Emitted 'footage.processed'. Ready for Review!`, 'success');
+    if (!res.ok) throw new Error(`Burn-in failed`);
+    showToast(`⚡ Subtitles burned onto ${asset.sceneId}! Ready to review.`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -563,32 +398,73 @@ async function updateStatus(asset, newStatus) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
-    if (!res.ok) throw new Error(`Update failed: ${res.status}`);
-    showToast(`${asset.sceneId} locked! Status updated to ${newStatus}.`, 'success');
+    if (!res.ok) throw new Error(`Update status failed`);
+    showToast(`🔒 ${asset.sceneId} locked for final cut!`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-async function submitIngestAsset() {
+// Inline note submission
+async function submitInlineNote() {
+  if (!selectedAsset.value || !quickNoteText.value.trim()) return;
+  submitting.value = true;
+  try {
+    const payload = {
+      asset_id: selectedAsset.value.id,
+      timestamp_seconds: currentSeconds.value,
+      timecode: formattedCurrentTimecode.value,
+      user_id: 'Director',
+      department: quickDept.value,
+      comment_text: quickNoteText.value.trim()
+    };
+
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error(`Could not post note`);
+    showToast(`Note posted at ${payload.timecode}!`, 'success');
+    quickNoteText.value = '';
+    await fetchAll();
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function deleteComment(id) {
+  try {
+    const res = await fetch(`/api/comments/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Delete note failed`);
+    showToast(`Note deleted.`, 'success');
+    await fetchAll();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function submitNewClip() {
   submitting.value = true;
   try {
     const res = await fetch('/api/assets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newAsset.value)
+      body: JSON.stringify({
+        ...newClip.value,
+        s3BucketUrl: `s3://collabcut-raw/${newClip.value.sceneId.replace(/\s+/g, '_').toLowerCase()}_tk${newClip.value.takeNumber}.mp4`
+      })
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Error ${res.status}`);
-    }
-
+    if (!res.ok) throw new Error(`Failed to create clip`);
     const created = await res.json();
-    showToast(`Asset '${created.sceneId}' Ingested! Emitted 'footage.uploaded' event.`, 'success');
-    newAsset.value = { title: '', sceneId: '', takeNumber: 1, cameraRoll: 'Roll A-01', durationSeconds: 150, s3BucketUrl: '', scriptDialogue: '' };
-    showIngestModal.value = false;
+    showToast(`Added clip: ${created.sceneId}`, 'success');
+    showUploadModal.value = false;
+    newClip.value = { sceneId: '', takeNumber: 1, title: '', scriptDialogue: '', cameraRoll: 'Roll A-01', durationSeconds: 120, s3BucketUrl: '' };
     await fetchAll();
     selectedAsset.value = created;
   } catch (err) {
@@ -598,59 +474,12 @@ async function submitIngestAsset() {
   }
 }
 
-async function submitAddNote() {
-  if (!selectedAsset.value) return;
-  submitting.value = true;
-  try {
-    const payload = {
-      asset_id: selectedAsset.value.id,
-      timestamp_seconds: newNote.value.timestampSeconds,
-      timecode: newNote.value.timecode,
-      user_id: newNote.value.userId,
-      department: newNote.value.department,
-      comment_text: newNote.value.commentText
-    };
-
-    const res = await fetch('/api/comments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Error ${res.status}`);
-    }
-
-    showToast(`Timecoded note saved to PostgreSQL! Emitted 'comment.created'.`, 'success');
-    newNote.value.commentText = '';
-    showAddNoteModal.value = false;
-    await fetchAll();
-  } catch (err) {
-    showToast(err.message, 'error');
-  } finally {
-    submitting.value = false;
-  }
-}
-
 async function deleteAsset(id, title) {
-  if (!confirm(`Are you sure you want to delete asset '${title}' from PostgreSQL?`)) return;
-
+  if (!confirm(`Delete '${title}'?`)) return;
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-    showToast(`Asset deleted from PostgreSQL.`, 'success');
-    await fetchAll();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-async function deleteComment(id) {
-  try {
-    const res = await fetch(`/api/comments/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`Delete failed`);
-    showToast(`Note deleted.`, 'success');
+    if (!res.ok) throw new Error(`Delete clip failed`);
+    showToast(`Deleted ${title}`, 'success');
     await fetchAll();
   } catch (err) {
     showToast(err.message, 'error');
@@ -658,31 +487,21 @@ async function deleteComment(id) {
 }
 
 const filteredAssets = computed(() => {
-  return assets.value.filter(a => {
-    const q = searchQuery.value.toLowerCase();
-    const matchesSearch = 
-      a.title.toLowerCase().includes(q) ||
-      a.sceneId.toLowerCase().includes(q) ||
-      a.cameraRoll.toLowerCase().includes(q);
-    const matchesFilter = filterStatus.value === 'ALL' || a.status === filterStatus.value;
-    return matchesSearch && matchesFilter;
-  });
+  const q = searchQuery.value.trim().toLowerCase();
+  if (!q) return assets.value;
+  return assets.value.filter(a => 
+    a.title.toLowerCase().includes(q) ||
+    a.sceneId.toLowerCase().includes(q) ||
+    (a.scriptDialogue && a.scriptDialogue.toLowerCase().includes(q))
+  );
 });
-
-const totalCommentsCount = computed(() => {
-  return assets.value.reduce((acc, a) => acc + (a.comments ? a.comments.length : 0), 0);
-});
-
-function countStatus(st) {
-  return assets.value.filter(a => a.status === st).length;
-}
 
 function formatStatus(st) {
   switch (st) {
-    case 'UPLOADED': return 'Uploaded';
-    case 'PROCESSING_BURN_IN': return 'Processing';
+    case 'UPLOADED': return 'Burn-in Needed';
+    case 'PROCESSING_BURN_IN': return 'Burning Subtitles...';
     case 'READY_FOR_REVIEW': return 'Ready for Review';
-    case 'APPROVED': return 'Picture Lock';
+    case 'APPROVED': return 'Picture Locked';
     default: return st;
   }
 }
@@ -692,19 +511,6 @@ function formatSeconds(sec) {
   const m = Math.floor(sec / 60).toString().padStart(2, '0');
   const s = (sec % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleTimeString();
-}
-
-function formatPayload(raw) {
-  try {
-    return JSON.stringify(JSON.parse(raw), null, 2);
-  } catch {
-    return raw;
-  }
 }
 
 onMounted(() => {
@@ -717,16 +523,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* Strict Two-Color Brand: #f4c524 and Black */
 .collabcut-app {
-  max-width: 1440px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  background-color: #000000;
   color: #ffffff;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: #000000;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
 /* Header */
@@ -734,96 +542,86 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  border-bottom: 1px solid rgba(244, 197, 36, 0.2);
-  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(244, 197, 36, 0.25);
+  padding-bottom: 1.25rem;
 }
 
 .studio-brand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 1rem;
 }
 
 .clapper-icon {
   font-size: 2.2rem;
   background: #000000;
   border: 1px solid #f4c524;
-  border-radius: 10px;
-  padding: 0.4rem 0.6rem;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.25);
+  border-radius: 8px;
+  padding: 0.3rem 0.5rem;
+  box-shadow: 0 0 15px rgba(244, 197, 36, 0.2);
 }
 
 .brand-title {
-  font-size: 1.7rem;
+  font-size: 1.8rem;
   font-weight: 800;
-  letter-spacing: -0.03em;
   color: #f4c524;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
-.project-tag {
+.brand-tagline {
   font-size: 0.85rem;
   color: #a3a3a3;
-}
-.project-tag em {
-  color: #f4c524;
-  font-style: normal;
-  font-weight: 600;
+  margin-top: 0.15rem;
 }
 
-.header-controls {
+.header-actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 
-.btn-event-feed {
+.clip-count-badge {
   background: #000000;
-  border: 1px solid #f4c524;
+  border: 1px solid rgba(244, 197, 36, 0.3);
   color: #f4c524;
-  padding: 0.55rem 0.95rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 6px;
   font-size: 0.8rem;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-event-feed:hover {
-  background: #f4c524;
-  color: #000000;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.3);
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-.btn-ingest {
-  background: #f4c524;
-  color: #000000;
-  border: 1px solid #f4c524;
-  padding: 0.55rem 1.2rem;
-  border-radius: 6px;
-  font-weight: 800;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.25);
-}
-.btn-ingest:hover {
-  background: #000000;
-  color: #f4c524;
-}
-
-.btn-icon {
+.btn-refresh {
   background: #000000;
   border: 1px solid rgba(244, 197, 36, 0.3);
   color: #f4c524;
   padding: 0.5rem 0.75rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  transition: all 0.2s;
 }
-.btn-icon:hover {
+.btn-refresh:hover {
   border-color: #f4c524;
   box-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
+}
+
+.btn-primary {
+  background: #f4c524;
+  color: #000000;
+  border: 1px solid #f4c524;
+  padding: 0.55rem 1.25rem;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 0 15px rgba(244, 197, 36, 0.25);
+}
+.btn-primary:hover {
+  background: #000000;
+  color: #f4c524;
 }
 
 .spin {
@@ -832,611 +630,613 @@ onUnmounted(() => {
 }
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* Architecture Banner */
-.arch-banner {
-  background: #0a0a0a;
-  border: 1px solid rgba(244, 197, 36, 0.2);
-  border-radius: 10px;
-  padding: 0.75rem 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.arch-label {
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  color: #f4c524;
-  letter-spacing: 0.05em;
-}
-
-.arch-flow {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.arch-node {
-  background: #000000;
-  border: 1px solid rgba(244, 197, 36, 0.25);
-  border-radius: 6px;
-  padding: 0.4rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-}
-
-.node-title { font-size: 0.8rem; font-weight: 800; color: #f4c524; }
-.node-sub { font-size: 0.65rem; color: #a3a3a3; font-family: 'JetBrains Mono', monospace; }
-
-.arch-arrow {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  color: #737373;
-  font-size: 0.9rem;
-}
-
-.event-tag {
-  background: #000000;
-  color: #f4c524;
-  border: 1px dashed #f4c524;
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
-  font-size: 0.65rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 700;
-}
-
-/* KPI Grid */
-.kpi-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 1rem;
-}
-
-.kpi-card {
-  background: #0a0a0a;
-  border: 1px solid rgba(244, 197, 36, 0.15);
-  border-radius: 10px;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.kpi-card:hover, .kpi-card.active {
-  border-color: #f4c524;
-  background: #121212;
-  box-shadow: 0 0 18px rgba(244, 197, 36, 0.18);
-}
-
-.kpi-icon {
-  font-size: 1.6rem;
-  padding: 0.5rem;
-  background: #000000;
-  border: 1px solid rgba(244, 197, 36, 0.25);
-  border-radius: 8px;
-}
-.ingest-color, .review-color, .locked-color, .notes-color {
-  background: #000000;
-  border: 1px solid rgba(244, 197, 36, 0.3);
-}
-
-.kpi-num {
-  font-size: 1.4rem;
-  font-weight: 800;
-  color: #f4c524;
-  font-family: 'JetBrains Mono', monospace;
-}
-.kpi-label { font-size: 0.75rem; color: #a3a3a3; text-transform: uppercase; font-weight: 700; }
-
 /* Toast */
 .studio-toast {
-  padding: 0.75rem 1rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  font-weight: 700;
-}
-.studio-toast.success { 
-  background: #000000; 
-  border: 1px solid #f4c524; 
-  color: #f4c524; 
-  box-shadow: 0 0 20px rgba(244, 197, 36, 0.25); 
-}
-.studio-toast.error { 
-  background: #000000; 
-  border: 1px solid #f4c524; 
-  color: #ffffff; 
-}
-
-/* Event Broker Drawer */
-.event-drawer {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
   background: #000000;
   border: 1px solid #f4c524;
-  border-radius: 10px;
-  padding: 1rem;
-  box-shadow: 0 10px 35px rgba(0, 0, 0, 0.95);
-}
-
-.drawer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.75rem;
-}
-
-.drawer-title { font-size: 0.95rem; font-weight: 800; color: #f4c524; }
-.btn-close-sm { background: transparent; border: none; color: #a3a3a3; cursor: pointer; font-size: 1rem; }
-.btn-close-sm:hover { color: #f4c524; }
-
-.event-list {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-}
-
-.event-card {
-  min-width: 280px;
-  background: #0a0a0a;
-  border: 1px solid rgba(244, 197, 36, 0.2);
-  border-radius: 6px;
-  padding: 0.65rem;
-}
-
-.event-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.4rem;
-}
-
-.event-badge {
-  background: #000000;
   color: #f4c524;
-  border: 1px solid #f4c524;
-  padding: 0.1rem 0.4rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-family: 'JetBrains Mono', monospace;
-  font-weight: 800;
+  padding: 0.85rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 200;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.9), 0 0 15px rgba(244, 197, 36, 0.3);
 }
 
-.event-time { font-size: 0.65rem; color: #737373; font-family: 'JetBrains Mono', monospace; }
-
-.event-card pre {
-  font-size: 0.7rem;
-  color: #e5e5e5;
-  line-height: 1.3;
-}
-
-/* Split Workspace */
-.studio-workspace {
+/* Studio Grid Layout */
+.studio-grid {
   display: grid;
-  grid-template-columns: 460px 1fr;
+  grid-template-columns: 420px 1fr;
   gap: 1.5rem;
-  min-height: 680px;
+  flex: 1;
 }
 
 @media (max-width: 1024px) {
-  .studio-workspace { grid-template-columns: 1fr; }
+  .studio-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-/* Bin Panel */
-.bin-panel {
+/* Left: Clips Panel */
+.clips-panel {
   background: #0a0a0a;
   border: 1px solid rgba(244, 197, 36, 0.2);
-  border-radius: 12px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  height: calc(100vh - 160px);
+  min-height: 650px;
 }
 
-.panel-topbar {
-  padding: 1rem;
+.panel-header {
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid rgba(244, 197, 36, 0.15);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.bin-title { display: flex; justify-content: space-between; font-weight: 800; color: #ffffff; }
-.count-pill { 
-  background: #000000; 
-  color: #f4c524; 
-  border: 1px solid rgba(244, 197, 36, 0.3);
-  padding: 0.15rem 0.55rem; 
-  border-radius: 9999px; 
-  font-size: 0.75rem; 
-  font-weight: 700;
+.panel-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.bin-search input {
+.panel-title-row h2 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.count-pill {
+  background: #000000;
+  color: #f4c524;
+  border: 1px solid rgba(244, 197, 36, 0.3);
+  padding: 0.15rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 0.75rem;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.search-box input {
   width: 100%;
   background: #000000;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 6px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.5rem 2rem 0.5rem 2.2rem;
   color: #ffffff;
   font-size: 0.85rem;
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
-.bin-search input:focus {
+.search-box input:focus {
   border-color: #f4c524;
   box-shadow: 0 0 10px rgba(244, 197, 36, 0.25);
 }
 
-.asset-feed {
+.clear-search {
+  position: absolute;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+
+.clips-list {
   padding: 1rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
-  max-height: 720px;
+  flex: 1;
 }
 
-.asset-card {
+.clip-card {
   background: #000000;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  padding: 0.85rem;
+  padding: 1rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.asset-card:hover {
-  border-color: rgba(244, 197, 36, 0.5);
+.clip-card:hover {
+  border-color: rgba(244, 197, 36, 0.4);
   background: #0d0d0d;
 }
 
-.asset-card.selected {
+.clip-card.selected {
   border-color: #f4c524;
   background: #121212;
-  box-shadow: 0 0 20px rgba(244, 197, 36, 0.2);
+  box-shadow: 0 0 18px rgba(244, 197, 36, 0.2);
 }
 
-.asset-card-header {
+.clip-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.35rem;
 }
 
-.scene-badge { 
-  font-family: 'JetBrains Mono', monospace; 
-  font-weight: 800; 
-  font-size: 0.8rem; 
-  color: #f4c524; 
+.scene-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #f4c524;
 }
 
-.status-pill {
+.status-badge {
   font-size: 0.65rem;
   font-weight: 800;
   text-transform: uppercase;
-  padding: 0.15rem 0.5rem;
+  padding: 0.15rem 0.45rem;
   border-radius: 4px;
 }
-.status-uploaded { 
-  background: #000000; 
-  color: #f4c524; 
-  border: 1px solid rgba(244, 197, 36, 0.5); 
-}
-.status-ready_for_review { 
-  background: #f4c524; 
-  color: #000000; 
-  border: 1px solid #f4c524; 
-}
-.status-approved { 
-  background: #000000; 
-  color: #ffffff; 
-  border: 1px solid #ffffff; 
-}
-
-.asset-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; color: #ffffff; }
-
-.s3-path {
-  font-size: 0.7rem;
-  color: #737373;
-  font-family: 'JetBrains Mono', monospace;
-  margin-bottom: 0.2rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.burned-path { color: #f4c524; font-weight: 700; }
-
-.asset-metadata {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  font-size: 0.75rem;
-  color: #a3a3a3;
-  margin: 0.4rem 0;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.dialogue-snippet {
-  background: #050505;
-  border-left: 2px solid #f4c524;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.75rem;
-  color: #e5e5e5;
-  font-style: italic;
-  margin-bottom: 0.6rem;
-}
-
-.asset-card-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.4rem;
-}
-
-.btn-action {
-  font-size: 0.75rem;
-  font-weight: 800;
-  padding: 0.35rem 0.8rem;
-  border-radius: 4px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-.btn-burnin { 
-  background: #f4c524; 
-  color: #000000; 
-  border: 1px solid #f4c524; 
-}
-.btn-burnin:hover {
+.badge-uploaded {
   background: #000000;
   color: #f4c524;
-  box-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
+  border: 1px solid rgba(244, 197, 36, 0.5);
 }
-.btn-approve { 
-  background: #000000; 
-  color: #f4c524; 
-  border: 1px solid #f4c524; 
-}
-.btn-approve:hover {
+.badge-ready_for_review {
   background: #f4c524;
   color: #000000;
 }
-.btn-action-del { background: transparent; border: none; cursor: pointer; opacity: 0.6; color: #a3a3a3; }
-.btn-action-del:hover { opacity: 1; color: #ffffff; }
-
-/* Right Review Monitor */
-.review-panel {
-  background: #0a0a0a;
-  border: 1px solid rgba(244, 197, 36, 0.2);
-  border-radius: 12px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.cinema-viewport {
+.badge-approved {
   background: #000000;
-  border-bottom: 1px solid rgba(244, 197, 36, 0.2);
-  padding: 1.25rem;
-  position: relative;
-  min-height: 290px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background-image: radial-gradient(circle at center, #141414 0%, #000000 85%);
+  color: #ffffff;
+  border: 1px solid #ffffff;
 }
 
-.viewport-overlay-top {
+.clip-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.clip-dialogue-preview {
+  font-size: 0.75rem;
+  color: #a3a3a3;
+  font-style: italic;
+  border-left: 2px solid #f4c524;
+  padding-left: 0.5rem;
+  line-height: 1.3;
+}
+
+.clip-card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85rem;
+  margin-top: 0.25rem;
 }
 
-.rec-indicator {
+.clip-meta {
+  font-size: 0.75rem;
+  color: #737373;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.clip-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-burn-action {
+  background: #f4c524;
+  color: #000000;
+  border: 1px solid #f4c524;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-burn-action:hover {
+  background: #000000;
+  color: #f4c524;
+}
+
+.btn-lock-action {
+  background: #000000;
+  color: #f4c524;
+  border: 1px solid #f4c524;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-lock-action:hover {
+  background: #f4c524;
+  color: #000000;
+}
+
+.btn-delete-clip {
+  background: transparent;
+  border: none;
+  color: #737373;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.btn-delete-clip:hover {
+  color: #ffffff;
+}
+
+.empty-clips {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #737373;
+  font-size: 0.9rem;
+}
+
+/* Right: Cinema Review Panel */
+.review-panel {
+  background: #0a0a0a;
+  border: 1px solid rgba(244, 197, 36, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 160px);
+  min-height: 650px;
+}
+
+.review-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Cinema Player */
+.cinema-player {
+  background: #000000;
+  border-bottom: 1px solid rgba(244, 197, 36, 0.25);
+  display: flex;
+  flex-direction: column;
+}
+
+.player-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.playback-badge {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.75rem;
   font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
 }
 
-.rec-dot {
-  width: 10px;
-  height: 10px;
-  background: #525252;
+.live-dot {
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  background: #525252;
 }
-.rec-dot.playing {
+.live-dot.playing {
   background: #f4c524;
-  box-shadow: 0 0 12px #f4c524;
+  box-shadow: 0 0 10px #f4c524;
 }
 
-.tc-display { 
-  font-weight: 800; 
-  color: #f4c524; 
-  font-size: 1.15rem; 
-  text-shadow: 0 0 8px rgba(244, 197, 36, 0.4);
+.timecode-display {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #f4c524;
+  text-shadow: 0 0 10px rgba(244, 197, 36, 0.35);
 }
 
-.viewport-screen { text-align: center; padding: 1.5rem 0; }
-.cinema-title { font-size: 1.4rem; font-weight: 800; color: #ffffff; }
-.cinema-roll { font-size: 0.8rem; color: #a3a3a3; font-family: 'JetBrains Mono', monospace; }
+.scene-indicator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: #a3a3a3;
+}
 
-.burned-subtitle {
-  margin: 1.25rem auto 0 auto;
-  max-width: 620px;
-  background: #000000;
+.player-screen {
+  position: relative;
+  padding: 3rem 2rem 2.5rem 2rem;
+  text-align: center;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background-image: radial-gradient(circle at center, #141414 0%, #000000 80%);
+}
+
+.cinema-heading h3 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.cinema-heading p {
+  font-size: 0.8rem;
+  color: #737373;
+  margin-top: 0.25rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.dialogue-overlay {
+  margin: 1.5rem auto 0 auto;
+  max-width: 680px;
+  background: rgba(0, 0, 0, 0.9);
   border: 1px solid #f4c524;
-  border-radius: 6px;
-  padding: 0.75rem 1rem;
-  box-shadow: 0 0 20px rgba(244, 197, 36, 0.2);
+  border-radius: 8px;
+  padding: 0.85rem 1.25rem;
+  box-shadow: 0 0 25px rgba(244, 197, 36, 0.2);
 }
 
-.burn-tag {
-  display: inline-block;
+.sub-label {
+  display: block;
   font-size: 0.65rem;
+  font-weight: 800;
   font-family: 'JetBrains Mono', monospace;
   color: #f4c524;
-  font-weight: 800;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.35rem;
   letter-spacing: 0.05em;
 }
 
-.burned-subtitle p { font-size: 0.95rem; color: #f4c524; font-style: italic; }
+.sub-text {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #f4c524;
+  line-height: 1.4;
+}
 
-.viewport-controls {
+.player-controls {
   display: flex;
   align-items: center;
   gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: #050505;
 }
 
-.btn-play {
+.btn-play-toggle {
   background: #000000;
   border: 1px solid #f4c524;
   color: #f4c524;
+  font-weight: 800;
+  font-size: 0.8rem;
   padding: 0.4rem 0.9rem;
   border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 800;
   cursor: pointer;
+  transition: all 0.2s;
   white-space: nowrap;
-  transition: all 0.2s ease;
 }
-.btn-play:hover {
+.btn-play-toggle:hover {
   background: #f4c524;
   color: #000000;
 }
 
-.scrubber-slider {
+.cinema-scrubber {
   flex: 1;
   accent-color: #f4c524;
   cursor: pointer;
 }
 
-.duration-tag {
+.time-readout {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #a3a3a3;
   white-space: nowrap;
 }
 
-/* Notes Section */
-.notes-panel {
+/* Feedback Section */
+.feedback-section {
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
+  gap: 1rem;
   flex: 1;
 }
 
-.notes-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+.feedback-header h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #ffffff;
 }
 
-.notes-title { font-size: 1.1rem; font-weight: 800; color: #ffffff; }
-.notes-sub { font-size: 0.8rem; color: #a3a3a3; }
+.feedback-header .hint {
+  font-size: 0.8rem;
+  color: #a3a3a3;
+  margin-top: 0.15rem;
+}
 
-.btn-add-note {
-  background: #f4c524;
+.inline-note-form {
+  display: flex;
+  gap: 0.65rem;
+  background: #000000;
+  border: 1px solid rgba(244, 197, 36, 0.3);
+  border-radius: 8px;
+  padding: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.note-time-badge {
+  background: #111111;
   border: 1px solid #f4c524;
+  color: #f4c524;
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dept-select {
+  background: #111111;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 0.45rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.note-input {
+  flex: 1;
+  min-width: 200px;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  padding: 0.45rem 0.5rem;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.btn-post-note {
+  background: #f4c524;
   color: #000000;
-  padding: 0.45rem 0.9rem;
+  border: 1px solid #f4c524;
+  padding: 0.45rem 1.1rem;
   border-radius: 6px;
   font-weight: 800;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
+  white-space: nowrap;
 }
-.btn-add-note:hover {
+.btn-post-note:hover:not(:disabled) {
   background: #000000;
   color: #f4c524;
 }
-
-.notes-stream {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  overflow-y: auto;
-  max-height: 340px;
+.btn-post-note:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
-.note-item {
+/* Notes Timeline */
+.notes-timeline {
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.65rem;
+  overflow-y: auto;
+  max-height: 280px;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
   background: #000000;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
-  padding: 0.85rem;
+  padding: 0.75rem 1rem;
   cursor: pointer;
-  position: relative;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
 
-.note-item:hover {
-  background: #0c0c0c;
+.timeline-item:hover {
   border-color: #f4c524;
+  background: #0d0d0d;
 }
 
-.note-timecode {
+.timeline-tc {
   font-family: 'JetBrains Mono', monospace;
   font-weight: 800;
   color: #f4c524;
   font-size: 0.85rem;
   white-space: nowrap;
+  background: #111111;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
 }
 
-.note-body { flex: 1; }
+.timeline-content {
+  flex: 1;
+}
 
-.note-meta {
+.timeline-meta {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  margin-bottom: 0.35rem;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
 }
 
-.dept-badge {
+.timeline-dept {
   font-size: 0.65rem;
   font-weight: 800;
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
   font-family: 'JetBrains Mono', monospace;
-  background: #000000;
   color: #f4c524;
-  border: 1px solid rgba(244, 197, 36, 0.4);
-}
-.dept-editorial, .dept-color_grade, .dept-sound_design, .dept-vfx {
-  background: #000000;
-  color: #f4c524;
-  border: 1px solid rgba(244, 197, 36, 0.4);
+  text-transform: uppercase;
 }
 
-.author-tag { font-size: 0.75rem; color: #a3a3a3; font-weight: 600; }
-.note-text { font-size: 0.85rem; color: #e5e5e5; line-height: 1.4; }
+.timeline-author {
+  font-size: 0.75rem;
+  color: #737373;
+}
 
-.btn-note-del {
+.timeline-text {
+  font-size: 0.85rem;
+  color: #e5e5e5;
+  line-height: 1.4;
+}
+
+.btn-del-note {
   background: transparent;
   border: none;
   color: #737373;
   cursor: pointer;
+  padding: 0.2rem;
 }
-.btn-note-del:hover { color: #f4c524; }
+.btn-del-note:hover {
+  color: #ffffff;
+}
 
-.empty-notes { text-align: center; color: #737373; padding: 2.5rem; font-size: 0.85rem; }
-.no-selection-state { margin: auto; text-align: center; padding: 4rem 2rem; color: #737373; }
-.film-reel-icon { font-size: 3rem; margin-bottom: 1rem; color: #f4c524; }
+.no-notes {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: #737373;
+  font-size: 0.85rem;
+}
 
-/* Modals */
-.modal-overlay {
+/* Empty Selection */
+.empty-selection {
+  margin: auto;
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #737373;
+}
+.large-icon {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+/* Modal */
+.modal-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.85);
@@ -1445,30 +1245,63 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   z-index: 100;
+  padding: 1.5rem;
 }
 
-.modal-box {
+.modal-card {
   background: #0a0a0a;
   border: 1px solid #f4c524;
   border-radius: 12px;
   width: 100%;
-  max-width: 520px;
+  max-width: 500px;
   padding: 1.5rem;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.95);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.95);
 }
 
-.modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
-.modal-header h3 { color: #f4c524; font-weight: 800; font-size: 1.2rem; }
-.modal-close { background: transparent; border: none; color: #a3a3a3; font-size: 1.2rem; cursor: pointer; }
-.modal-close:hover { color: #f4c524; }
+.modal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
 
-.form-row { display: flex; gap: 0.75rem; }
+.modal-card-header h3 {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #f4c524;
+}
+
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  color: #a3a3a3;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+.btn-close-modal:hover {
+  color: #f4c524;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+}
 .flex-1 { flex: 1; }
 .flex-2 { flex: 2; }
 
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; font-size: 0.8rem; color: #a3a3a3; margin-bottom: 0.35rem; font-weight: 700; }
-.form-group input, .form-group select, .form-group textarea {
+.form-field {
+  margin-bottom: 1rem;
+}
+
+.form-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #a3a3a3;
+  margin-bottom: 0.35rem;
+}
+
+.form-field input, .form-field textarea {
   width: 100%;
   background: #000000;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1478,54 +1311,31 @@ onUnmounted(() => {
   font-family: inherit;
   font-size: 0.85rem;
   outline: none;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
 }
-.form-group input:focus, .form-group select:focus, .form-group textarea:focus { 
-  border-color: #f4c524; 
+.form-field input:focus, .form-field textarea:focus {
+  border-color: #f4c524;
   box-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
 }
 
-.modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; }
-.btn-cancel { 
-  background: #000000; 
-  border: 1px solid rgba(255, 255, 255, 0.2); 
-  color: #ffffff; 
-  padding: 0.5rem 1rem; 
-  border-radius: 6px; 
-  cursor: pointer; 
-  transition: all 0.2s ease;
+.modal-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
 }
-.btn-cancel:hover {
+
+.btn-secondary {
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary:hover {
   border-color: #f4c524;
   color: #f4c524;
-}
-
-.btn-primary { 
-  background: #f4c524; 
-  color: #000000; 
-  border: 1px solid #f4c524; 
-  padding: 0.55rem 1.35rem; 
-  border-radius: 6px; 
-  font-weight: 800; 
-  font-size: 0.85rem; 
-  cursor: pointer; 
-  transition: all 0.2s ease;
-  box-shadow: 0 0 15px rgba(244, 197, 36, 0.25);
-}
-.btn-primary:hover {
-  background: #000000;
-  color: #f4c524;
-}
-
-.studio-footer { 
-  text-align: center; 
-  font-size: 0.8rem; 
-  color: #737373; 
-  padding-top: 1rem; 
-  border-top: 1px solid rgba(244, 197, 36, 0.15); 
-}
-.studio-footer a {
-  color: #f4c524;
-  text-decoration: none;
 }
 </style>
