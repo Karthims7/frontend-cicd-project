@@ -1,38 +1,50 @@
-# Production-Inspired Kubernetes Microservices Lab
+# CollabCut: Independent Film Post-Production Tracker
 
-A practical, production-inspired Kubernetes microservices lab running locally on macOS (Apple Silicon M1 Pro) using **Podman** and **Minikube**, featuring a **Vue.js** frontend, a **Java Spring Boot** backend microservice, and a **PostgreSQL** persistent database, automated with **GitHub Actions**.
+A cloud-native, microservices-driven post-production management suite for independent filmmakers and boutique post houses, running locally on macOS (Apple Silicon M1 Pro) with **Podman** and **Minikube**, and automated via **GitHub Actions**.
 
 ---
 
-## 1. Architecture Topology
+## 1. Domain & Pipeline Overview
+
+The post-production film pipeline (editing, dialogue subtitles, sound design, color grading) is notoriously complex. CollabCut solves this by decoupling the process into dedicated responsibilities:
+
+1. **Footage Ingest:** Editors upload raw takes, tag Scene / Take / Camera Roll metadata, and map clip proxies.
+2. **Script Burn-In Pipeline:** An automated pipeline overlays screenplay dialogue subtitles directly onto the work proxy files.
+3. **Review & Feedback Service:** Directors, producers, colorists, and sound designers review picture cuts and drop frame-accurate, time-coded feedback notes (`00:01:24:12`) directly linked to the scene.
 
 ```
-                       [ Client / Browser ]
-                                │
-        (Mac: http://localhost:3000 | Phone: http://<Mac-IP>:3000)
-                                │
-                                ▼
-         ┌──────────────────────────────────────────────┐
-         │ Kubernetes Cluster (Minikube / containerd)   │
-         │                                              │
-         │   [ Frontend Service (NodePort: 30080) ]     │
-         │                  │                           │
-         │                  ▼                           │
-         │   [ Frontend Pod (Vue 3 + Nginx Reverse Proxy)
-         │       ├── Static SPA Assets                  │
-         │       └── Proxy: /api/* ───────────────┐     │
-         │                                        │     │
-         │                                        ▼     │
-         │            [ user-service (ClusterIP: 8080) ]│
-         │               (Spring Boot 4 / Java 21)      │
-         │                         │                    │
-         │                         ▼                    │
-         │              [ postgres (ClusterIP: 5432) ]  │
-         │                   (PostgreSQL 16)            │
-         │                         │                    │
-         │                         ▼                    │
-         │              [ PVC: postgres-pvc (1Gi) ]     │
-         └──────────────────────────────────────────────┘
+                      [ Director / Editor Browser ]
+                                     │
+           (Mac: http://localhost:3000 | Phone: http://<Mac-IP>:3000)
+                                     │
+                                     ▼
+         ┌─────────────────────────────────────────────────────────┐
+         │ Kubernetes Cluster (Minikube / containerd)              │
+         │                                                         │
+         │   [ Frontend Service (NodePort: 30080) ]                │
+         │                  │                                      │
+         │                  ▼                                      │
+         │   [ CollabCut Studio UI (Vue 3 + Nginx Reverse Proxy) ] │
+         │       ├── Cinematic Viewport & Scrubber                 │
+         │       ├── Ingest Bin & Takes Manager                    │
+         │       └── Proxy: /api/* ──────────────────────────┐     │
+         │                                                   │     │
+         │                                                   ▼     │
+         │            [ CollabCut Core Service (Port: 8080) ]      │
+         │               (Spring Boot 4 / Java 21)                 │
+         │               ├── Footage Ingest API                    │
+         │               ├── Script Burn-In Orchestrator           │
+         │               └── Timecoded Review Notes API            │
+         │                         │                               │
+         │                         ▼                               │
+         │              [ postgres (ClusterIP: 5432) ]             │
+         │                   (PostgreSQL 16)                       │
+         │                   ├── clips table                       │
+         │                   └── timecoded_notes table             │
+         │                         │                               │
+         │                         ▼                               │
+         │              [ PVC: postgres-pvc (1Gi) ]                │
+         └─────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -41,12 +53,12 @@ A practical, production-inspired Kubernetes microservices lab running locally on
 
 ```text
 ├── .github/workflows/
-│   └── ci.yml               # GitHub Actions CI pipeline (Backend, Frontend, K8s dry-run)
+│   └── ci.yml               # GitHub Actions CI pipeline (Java tests, Vue build, Kubeconform)
 ├── database/
-│   ├── init.sql             # Database schema and seed data
+│   ├── init.sql             # CollabCut schema (clips, timecoded_notes) and seed data
 │   └── README.md            # Database management guide
 ├── frontend/
-│   ├── src/                 # Vue 3 application source code
+│   ├── src/                 # CollabCut Vue 3 Studio application
 │   ├── Containerfile        # Multi-stage production container build (Node.js + Nginx)
 │   ├── Dockerfile           # Standard Dockerfile compatibility mirror
 │   ├── nginx.conf           # SPA routing & /api/ reverse proxy configuration
@@ -55,7 +67,7 @@ A practical, production-inspired Kubernetes microservices lab running locally on
 │   ├── coredns-backup.yaml  # Reference backup of CoreDNS ConfigMap
 │   ├── frontend.yaml        # Deployment & NodePort Service for Vue frontend
 │   ├── postgres.yaml        # Secret, PVC, Deployment & Service for PostgreSQL
-│   └── user-service.yaml    # Deployment & Service for Spring Boot user-service
+│   └── user-service.yaml    # Deployment & Service for CollabCut backend service
 ├── user-service/
 │   ├── src/                 # Spring Boot source code and tests
 │   ├── Containerfile        # JRE runtime image definition
@@ -74,100 +86,59 @@ A practical, production-inspired Kubernetes microservices lab running locally on
 * **Frontend:** Vue 3, Vite, Nginx reverse proxy
 * **Backend:** Java 21, Spring Boot 4.1.2, Spring Data JPA, HikariCP
 * **Database:** PostgreSQL 16 Alpine with Kubernetes PersistentVolumeClaim
-* **CI/CD:** GitHub Actions
+* **CI/CD:** GitHub Actions with Kubeconform schema validation
 
 ---
 
-## 4. Building & Loading Images (Podman-Native Workflow)
+## 4. Building & Deploying the Application
 
-Because Minikube uses `containerd`, container images built locally via Podman must be transferred into Minikube's local image cache.
-
-### Backend (`user-service`)
+### A. Apply Database Schema
 ```bash
-# 1. Build JAR using Maven
-cd user-service
-./mvnw clean package -DskipTests
-
-# 2. Build image with Podman
-podman build -t localhost/user-service:local -f Containerfile .
-cd ..
-
-# 3. Transfer image into Minikube
-podman save localhost/user-service:local -o /tmp/user-service.tar
-minikube image load /tmp/user-service.tar -p devops-lab
-rm -f /tmp/user-service.tar
-```
-
-### Frontend (`frontend`)
-```bash
-# 1. Build multi-stage image with Podman
-podman build -t localhost/frontend:local -f frontend/Containerfile frontend/
-
-# 2. Transfer image into Minikube
-podman save localhost/frontend:local -o /tmp/frontend.tar
-minikube image load /tmp/frontend.tar -p devops-lab
-rm -f /tmp/frontend.tar
-```
-
----
-
-## 5. Deploying to Kubernetes
-
-Apply manifests in dependency order:
-
-```bash
-# 1. Database
-kubectl apply -f k8s/postgres.yaml
-
-# 2. Backend Service
-kubectl apply -f k8s/user-service.yaml
-
-# 3. Frontend UI
-kubectl apply -f k8s/frontend.yaml
-
-# 4. Initialize Database Schema & Seed Data
 kubectl exec -i $(kubectl get pod -l app=postgres -o jsonpath='{.items[0].metadata.name}') -- psql -U appuser -d appdb < database/init.sql
 ```
 
-Verify that all workloads are healthy and `Running`:
+### B. Build and Deploy Backend
 ```bash
-kubectl get pods,svc,pvc
+cd user-service
+./mvnw clean package -DskipTests
+podman build -t localhost/user-service:local -f Containerfile .
+podman save localhost/user-service:local -o /tmp/user-service.tar
+minikube image load /tmp/user-service.tar -p devops-lab
+rm -f /tmp/user-service.tar
+cd ..
+kubectl rollout restart deployment/user-service
+```
+
+### C. Build and Deploy Frontend
+```bash
+cd frontend
+npm run build
+podman build -t localhost/frontend:local -f Containerfile .
+podman save localhost/frontend:local -o /tmp/frontend.tar
+minikube image load /tmp/frontend.tar -p devops-lab
+rm -f /tmp/frontend.tar
+cd ..
+kubectl rollout restart deployment/frontend
 ```
 
 ---
 
-## 6. Accessing the Application
+## 5. Accessing the CollabCut Studio
 
-### Access from your Mac
+### From your Mac
 Run port forwarding on port `3000`:
 ```bash
 kubectl port-forward svc/frontend 3000:80
 ```
 Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
-### Access from your Mobile Phone (Same Local Wi-Fi)
+### From your Mobile Phone (Same Local Wi-Fi)
 1. Find your Mac's Wi-Fi IP address:
    ```bash
    ipconfig getifaddr en0
    ```
-   *(Example: `192.168.29.163`)*
-
 2. Start the port forward binding to all interfaces:
    ```bash
    kubectl port-forward --address 0.0.0.0 svc/frontend 3000:80
    ```
-
-3. Open **`http://<YOUR-MAC-IP>:3000`** on your phone's browser (e.g. `http://192.168.29.163:3000`).
-
----
-
-## 7. CI/CD Architecture (GitHub Actions)
-
-The workflow in `.github/workflows/ci.yml` triggers on every push and pull request to `main`:
-1. **`backend-ci`**: Sets up JDK 21, executes `./mvnw test`, packages the Spring Boot JAR, and validates container image build.
-2. **`frontend-ci`**: Sets up Node.js 20, runs `npm install`, compiles the Vue production bundle (`npm run build`), and builds the Nginx container image.
-3. **`k8s-validation`**: Uses `kubectl --dry-run=client` to ensure all Kubernetes manifests are syntactically valid and conform to Kubernetes schemas.
-
-> [!NOTE]
-> **CI vs. Deployment Separation:**
-> Cloud runners on GitHub Actions cannot directly reach your local Minikube cluster running on your Mac without a secure tunnel or a self-hosted runner. The CI pipeline validates builds and images on GitHub, while local deployment runs reproducibly from your repository manifests.
+3. Open `http://<YOUR-MAC-IP>:3000` on your mobile browser.
