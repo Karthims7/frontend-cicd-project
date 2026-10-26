@@ -102,9 +102,21 @@
           >
             <div class="take-card-top">
               <span class="take-scene">{{ asset.sceneId }} • Take {{ asset.takeNumber }}</span>
-              <span class="take-status-pill" :class="'pill-' + asset.status.toLowerCase()">
-                {{ formatStatus(asset.status) }}
-              </span>
+              <div class="take-top-right">
+                <span class="take-status-pill" :class="'pill-' + asset.status.toLowerCase()">
+                  {{ formatStatus(asset.status) }}
+                </span>
+                <button 
+                  class="btn-card-quick-delete" 
+                  @click.stop="deleteAsset(asset.id, asset.title)" 
+                  title="Delete take"
+                >
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <h4 class="take-title">{{ asset.title }}</h4>
@@ -134,11 +146,27 @@
                   🔒 Lock
                 </button>
                 <button 
-                  class="btn-delete-action" 
+                  class="btn-tile-reload" 
+                  @click="triggerTileReload(asset.id)"
+                  title="Reload or attach video footage file for this take"
+                >
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <span>Reload</span>
+                </button>
+                <button 
+                  class="btn-tile-delete" 
                   @click="deleteAsset(asset.id, asset.title)" 
                   title="Delete take"
                 >
-                  ✕
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
+                  <span>Delete</span>
                 </button>
               </div>
             </div>
@@ -195,6 +223,42 @@
                 @ended="isPlaying = false"
               ></video>
 
+              <!-- Missing Local Footage / Reload Prompt Overlay -->
+              <div 
+                v-if="isLocalSourceMissing" 
+                class="local-missing-overlay"
+                @click.stop
+              >
+                <div class="local-missing-card">
+                  <div class="missing-badge">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                      <polyline points="17 8 12 3 7 8"></polyline>
+                      <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span>LOCAL FOOTAGE REFERENCE</span>
+                  </div>
+                  <h3 class="missing-filename">{{ localMissingFileName }}</h3>
+                  <p class="missing-desc">
+                    This take is linked to a video file on your laptop or external drive. 
+                    Click below or drop the video file into this viewport to restore instant playback.
+                  </p>
+                  <div class="missing-actions">
+                    <button class="btn-missing-reload" @click="triggerQuickLocalUpload">
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                      <span>Reload Video File</span>
+                    </button>
+                    <button class="btn-missing-switch-preset" @click="openUploadModal">
+                      <span>+ Switch / Upload New Cut</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <!-- Drag-and-drop indicator overlay -->
               <div v-if="isDraggingOver" class="drag-drop-overlay">
                 <div class="drag-drop-content">
@@ -239,6 +303,15 @@
               accept="video/*"
               style="display: none;"
               @change="handleQuickFileSelect"
+            />
+
+            <!-- Hidden File Input for reloading specific tile from disk -->
+            <input 
+              ref="tileReloadInputRef"
+              type="file"
+              accept="video/*,.mp4,.mov,.webm,.mkv"
+              style="display: none;"
+              @change="handleTileReloadSelected"
             />
 
             <!-- Player Transport & Scrubber Bar -->
@@ -521,6 +594,10 @@ const showUploadModal = ref(false);
 const videoPlayerRef = ref(null);
 const quickFileInputRef = ref(null);
 const modalFileInputRef = ref(null);
+const tileReloadInputRef = ref(null);
+const targetReloadAssetId = ref(null);
+const pendingLocalFile = ref(null);
+
 const isPlaying = ref(false);
 const currentSeconds = ref(0);
 const isDraggingOver = ref(false);
@@ -530,6 +607,107 @@ const localVideoSources = ref({});
 const localPendingBlobUrl = ref('');
 const selectedLocalFileName = ref('');
 const selectedLocalFileSize = ref('');
+
+// ==========================================
+// IndexedDB Persistent Local Video Storage
+// Stores raw File/Blob instances across browser reloads
+// ==========================================
+const DB_NAME = 'collabcut_media_db';
+const DB_VERSION = 1;
+const STORE_NAME = 'videos';
+
+function openVideoDatabase() {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'assetId' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = (e) => {
+      console.warn('IndexedDB open error:', e);
+      resolve(null);
+    };
+  });
+}
+
+async function saveVideoToIndexedDB(assetId, file) {
+  try {
+    const db = await openVideoDatabase();
+    if (!db) return;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.put({
+        assetId: String(assetId),
+        file: file,
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        updatedAt: Date.now()
+      });
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = (err) => {
+        console.warn('IndexedDB put error:', err);
+        resolve(false);
+      };
+    });
+  } catch (err) {
+    console.warn('saveVideoToIndexedDB exception:', err);
+  }
+}
+
+async function removeVideoFromIndexedDB(assetId) {
+  try {
+    const db = await openVideoDatabase();
+    if (!db) return;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      const store = tx.objectStore(STORE_NAME);
+      store.delete(String(assetId));
+      tx.oncomplete = () => resolve(true);
+      tx.onerror = () => resolve(false);
+    });
+  } catch (err) {
+    console.warn('removeVideoFromIndexedDB exception:', err);
+  }
+}
+
+async function loadAllStoredVideos() {
+  try {
+    const db = await openVideoDatabase();
+    if (!db) return;
+    return new Promise((resolve) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req = store.getAll();
+      req.onsuccess = () => {
+        const records = req.result || [];
+        records.forEach(rec => {
+          if (rec.file && rec.assetId) {
+            try {
+              const blobUrl = URL.createObjectURL(rec.file);
+              localVideoSources.value[rec.assetId] = blobUrl;
+              localVideoSources.value[Number(rec.assetId)] = blobUrl;
+            } catch (err) {
+              console.warn('Error creating object URL from stored file:', err);
+            }
+          }
+        });
+        resolve();
+      };
+      req.onerror = () => resolve();
+    });
+  } catch (err) {
+    console.warn('loadAllStoredVideos exception:', err);
+  }
+}
 
 // Ingest source tab
 const uploadSourceType = ref('LOCAL'); // 'LOCAL' | 'CLOUD' | 'SAMPLE'
@@ -605,14 +783,40 @@ const formattedCurrentTimecode = computed(() => {
   return `${hrs}:${mins}:${s}:${frames}`;
 });
 
+// Check if selected asset has a local file reference that needs re-attaching
+const isLocalSourceMissing = computed(() => {
+  if (!selectedAsset.value) return false;
+  const s3 = selectedAsset.value.s3BucketUrl || '';
+  if (s3.startsWith('local://')) {
+    const id = selectedAsset.value.id;
+    return !localVideoSources.value[id] && !localVideoSources.value[String(id)] && !localVideoSources.value[Number(id)];
+  }
+  return false;
+});
+
+const localMissingFileName = computed(() => {
+  if (!selectedAsset.value) return '';
+  const s3 = selectedAsset.value.s3BucketUrl || '';
+  if (s3.startsWith('local://')) {
+    return s3.replace('local://', '');
+  }
+  return selectedAsset.value.title;
+});
+
 // Active Video Stream Source Resolution
 const currentVideoSource = computed(() => {
   if (!selectedAsset.value) return '';
   const id = selectedAsset.value.id;
   
-  // 1. Check if user attached a local video file (Blob URL)
+  // 1. Check if user attached a local video file (Blob URL from memory or IndexedDB)
   if (localVideoSources.value[id]) {
     return localVideoSources.value[id];
+  }
+  if (localVideoSources.value[String(id)]) {
+    return localVideoSources.value[String(id)];
+  }
+  if (localVideoSources.value[Number(id)]) {
+    return localVideoSources.value[Number(id)];
   }
 
   // 2. Check if asset's s3BucketUrl is a direct HTTP/HTTPS/Blob URL
@@ -628,16 +832,23 @@ const currentVideoSource = computed(() => {
     return rawUrl;
   }
 
-  // 3. Fallback to reliable sample film video by ID modulo
-  const idx = (typeof id === 'number' ? id : 1) % defaultCdnVideos.length;
-  return defaultCdnVideos[idx];
+  // 3. Fallback to reliable sample film video only for cloud/demo assets, NOT for local:// references
+  if (!rawUrl.startsWith('local://')) {
+    const idx = (typeof id === 'number' ? id : 1) % defaultCdnVideos.length;
+    return defaultCdnVideos[idx];
+  }
+
+  return '';
 });
 
 const currentVideoSourceLabel = computed(() => {
   if (!selectedAsset.value) return '';
   const id = selectedAsset.value.id;
-  if (localVideoSources.value[id]) return '💻 Local Video';
+  if (localVideoSources.value[id] || localVideoSources.value[String(id)] || localVideoSources.value[Number(id)]) {
+    return '💻 Local Video';
+  }
   const raw = selectedAsset.value.s3BucketUrl || '';
+  if (raw.startsWith('local://')) return '📂 Local Video (Needs Reload)';
   if (raw.includes('drive.google.com')) return '☁️ Google Drive';
   if (raw.startsWith('http')) return '🌐 Cloud Stream';
   return '🎞️ Studio Reel';
@@ -701,7 +912,7 @@ function calcMarkerLeft(timestampSec) {
 }
 
 // Direct Drag-and-Drop video onto Cinema Viewport
-function handleDropVideo(e) {
+async function handleDropVideo(e) {
   isDraggingOver.value = false;
   if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
   const file = e.dataTransfer.files[0];
@@ -710,40 +921,73 @@ function handleDropVideo(e) {
     return;
   }
 
-  attachLocalFileToAsset(selectedAsset.value.id, file);
+  if (!selectedAsset.value) {
+    showToast('Select a take first or click + New Take to ingest', 'error');
+    return;
+  }
+
+  await attachLocalFileToAsset(selectedAsset.value.id, file);
 }
 
-// Quick Local Video Switch button
+// Quick Local Video Switch button in header
 function triggerQuickLocalUpload() {
   if (quickFileInputRef.value) {
+    quickFileInputRef.value.value = '';
     quickFileInputRef.value.click();
   }
 }
 
-function handleQuickFileSelect(e) {
+async function handleQuickFileSelect(e) {
   if (!e.target.files || !e.target.files.length) return;
   const file = e.target.files[0];
   if (selectedAsset.value) {
-    attachLocalFileToAsset(selectedAsset.value.id, file);
+    await attachLocalFileToAsset(selectedAsset.value.id, file);
   }
 }
 
-// Attach local video file to active take
-function attachLocalFileToAsset(assetId, file) {
+// Tile-specific Reload button
+function triggerTileReload(assetId) {
+  targetReloadAssetId.value = assetId;
+  if (tileReloadInputRef.value) {
+    tileReloadInputRef.value.value = '';
+    tileReloadInputRef.value.click();
+  }
+}
+
+async function handleTileReloadSelected(e) {
+  if (!e.target.files || !e.target.files.length) return;
+  const file = e.target.files[0];
+  const assetId = targetReloadAssetId.value;
+  if (!assetId) return;
+
+  await attachLocalFileToAsset(assetId, file);
+
+  // Automatically select this asset so user immediately sees their reloaded video
+  const target = assets.value.find(a => a.id === assetId || a.id === Number(assetId));
+  if (target) {
+    selectedAsset.value = target;
+  }
+}
+
+// Attach local video file to take (saves to IndexedDB & generates blob URL)
+async function attachLocalFileToAsset(assetId, file) {
+  await saveVideoToIndexedDB(assetId, file);
   const blobUrl = URL.createObjectURL(file);
   localVideoSources.value[assetId] = blobUrl;
+  localVideoSources.value[Number(assetId)] = blobUrl;
+  localVideoSources.value[String(assetId)] = blobUrl;
   
   // Auto-detect duration
   const tempV = document.createElement('video');
   tempV.preload = 'metadata';
   tempV.src = blobUrl;
   tempV.onloadedmetadata = () => {
-    if (selectedAsset.value && selectedAsset.value.id === assetId) {
+    if (selectedAsset.value && (selectedAsset.value.id === assetId || selectedAsset.value.id === Number(assetId))) {
       selectedAsset.value.durationSeconds = Math.round(tempV.duration) || selectedAsset.value.durationSeconds;
     }
   };
 
-  showToast(`Loaded "${file.name}" directly from laptop!`, 'success');
+  showToast(`Loaded "${file.name}" (Persisted across reloads)`, 'success');
   nextTick(() => {
     if (videoPlayerRef.value) {
       videoPlayerRef.value.load();
@@ -756,6 +1000,7 @@ function attachLocalFileToAsset(assetId, file) {
 function onModalFileSelected(e) {
   if (!e.target.files || !e.target.files.length) return;
   const file = e.target.files[0];
+  pendingLocalFile.value = file;
   selectedLocalFileName.value = file.name;
   
   const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
@@ -769,7 +1014,7 @@ function onModalFileSelected(e) {
     newClip.value.sceneId = 'Scene 01';
   }
 
-  // Create local blob URL
+  // Create local blob URL for preview
   localPendingBlobUrl.value = URL.createObjectURL(file);
 
   // Read duration
@@ -782,6 +1027,10 @@ function onModalFileSelected(e) {
 }
 
 function applySamplePreset(sample) {
+  pendingLocalFile.value = null;
+  selectedLocalFileName.value = '';
+  selectedLocalFileSize.value = '';
+  localPendingBlobUrl.value = '';
   newClip.value.title = sample.title;
   newClip.value.sceneId = sample.sceneId;
   newClip.value.takeNumber = sample.takeNumber;
@@ -792,6 +1041,7 @@ function applySamplePreset(sample) {
 }
 
 function openUploadModal() {
+  pendingLocalFile.value = null;
   selectedLocalFileName.value = '';
   selectedLocalFileSize.value = '';
   localPendingBlobUrl.value = '';
@@ -920,9 +1170,18 @@ async function submitNewClip() {
     if (!res.ok) throw new Error(`Failed to create take`);
     const created = await res.json();
 
-    // If local file was loaded, associate the blob URL with the newly created asset ID
-    if (localPendingBlobUrl.value) {
+    // If local file was loaded, save to IndexedDB and associate the blob URL with the newly created asset ID
+    if (pendingLocalFile.value) {
+      await saveVideoToIndexedDB(created.id, pendingLocalFile.value);
+      const blobUrl = URL.createObjectURL(pendingLocalFile.value);
+      localVideoSources.value[created.id] = blobUrl;
+      localVideoSources.value[Number(created.id)] = blobUrl;
+      localVideoSources.value[String(created.id)] = blobUrl;
+      pendingLocalFile.value = null;
+    } else if (localPendingBlobUrl.value) {
       localVideoSources.value[created.id] = localPendingBlobUrl.value;
+      localVideoSources.value[Number(created.id)] = localPendingBlobUrl.value;
+      localVideoSources.value[String(created.id)] = localPendingBlobUrl.value;
     }
 
     showToast(`Added ${created.sceneId} with video attached!`, 'success');
@@ -945,13 +1204,22 @@ async function submitNewClip() {
 }
 
 async function deleteAsset(id, title) {
-  if (!confirm(`Delete '${title}'?`)) return;
+  if (!confirm(`Permanently delete take "${title}"?`)) return;
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Delete take failed`);
+    
+    await removeVideoFromIndexedDB(id);
     delete localVideoSources.value[id];
-    showToast(`Deleted ${title}`, 'success');
+    delete localVideoSources.value[Number(id)];
+    delete localVideoSources.value[String(id)];
+    
+    showToast(`Deleted "${title}"`, 'success');
     await fetchAll();
+    
+    if (selectedAsset.value && (selectedAsset.value.id === id || selectedAsset.value.id === Number(id))) {
+      selectedAsset.value = assets.value.length > 0 ? assets.value[0] : null;
+    }
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -986,8 +1254,9 @@ function formatSeconds(sec) {
   return `${m}:${s}`;
 }
 
-onMounted(() => {
-  fetchAll();
+onMounted(async () => {
+  await loadAllStoredVideos();
+  await fetchAll();
 });
 
 onUnmounted(() => {
@@ -1363,16 +1632,173 @@ onUnmounted(() => {
   color: #000000;
 }
 
-.btn-delete-action {
+.take-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.btn-card-quick-delete {
   background: transparent;
   border: none;
   color: #52525b;
   cursor: pointer;
-  padding: 0.2rem;
-  font-size: 0.8rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
 }
-.btn-delete-action:hover {
+.btn-card-quick-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.take-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.btn-tile-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #f4c524;
+  padding: 0.25rem 0.55rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-tile-reload:hover {
+  background: #f4c524;
+  color: #000000;
+  border-color: #f4c524;
+}
+
+.btn-tile-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #a1a1aa;
+  padding: 0.25rem 0.55rem;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-tile-delete:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* Local Video Missing / Reload Prompt Overlay */
+.local-missing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 25;
+  padding: 1.5rem;
+}
+
+.local-missing-card {
+  background: #0d0d0d;
+  border: 1px solid #27272a;
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  max-width: 520px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.9);
+}
+
+.missing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  background: rgba(244, 197, 36, 0.12);
+  border: 1px solid rgba(244, 197, 36, 0.4);
+  color: #f4c524;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.missing-filename {
+  font-size: 1.15rem;
+  font-weight: 700;
   color: #ffffff;
+  word-break: break-all;
+  line-height: 1.35;
+  margin: 0;
+}
+
+.missing-desc {
+  font-size: 0.85rem;
+  color: #a1a1aa;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.missing-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn-missing-reload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f4c524;
+  color: #000000;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-missing-reload:hover {
+  background: #ffdb4d;
+  transform: translateY(-1px);
+}
+
+.btn-missing-switch-preset {
+  background: #18181b;
+  border: 1px solid #27272a;
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-missing-switch-preset:hover {
+  border-color: #52525b;
 }
 
 .empty-bin-state {
