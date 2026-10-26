@@ -159,7 +159,7 @@
                 </button>
                 <button 
                   class="btn-tile-delete" 
-                  @click="deleteAsset(asset.id, asset.title)" 
+                  @click.stop="deleteAsset(asset.id, asset.title)" 
                   title="Delete take"
                 >
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
@@ -1204,24 +1204,40 @@ async function submitNewClip() {
 }
 
 async function deleteAsset(id, title) {
-  if (!confirm(`Permanently delete take "${title}"?`)) return;
+  const targetId = Number(id);
+  const previousAssets = [...assets.value];
+  
+  // 1. Optimistic removal: remove immediately from UI in 0ms!
+  assets.value = assets.value.filter(a => a.id !== id && a.id !== targetId);
+
+  // 2. If the deleted asset was currently selected, switch to first remaining take
+  if (selectedAsset.value && (selectedAsset.value.id === id || selectedAsset.value.id === targetId)) {
+    selectedAsset.value = assets.value.length > 0 ? assets.value[0] : null;
+  }
+
+  showToast(`Deleted take "${title}"`, 'success');
+
+  // 3. Clean up IndexedDB and local blob URLs
+  try {
+    await removeVideoFromIndexedDB(id);
+  } catch (e) {
+    console.warn('Error removing from IndexedDB:', e);
+  }
+  delete localVideoSources.value[id];
+  delete localVideoSources.value[targetId];
+  delete localVideoSources.value[String(id)];
+
+  // 4. Send asynchronous delete request to PostgreSQL backend
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`Delete take failed`);
-    
-    await removeVideoFromIndexedDB(id);
-    delete localVideoSources.value[id];
-    delete localVideoSources.value[Number(id)];
-    delete localVideoSources.value[String(id)];
-    
-    showToast(`Deleted "${title}"`, 'success');
-    await fetchAll();
-    
-    if (selectedAsset.value && (selectedAsset.value.id === id || selectedAsset.value.id === Number(id))) {
-      selectedAsset.value = assets.value.length > 0 ? assets.value[0] : null;
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Server returned HTTP ${res.status}`);
     }
   } catch (err) {
-    showToast(err.message, 'error');
+    console.error('Delete take failed on server:', err);
+    // Rollback if server failed
+    assets.value = previousAssets;
+    showToast(`Could not delete take: ${err.message}`, 'error');
   }
 }
 
