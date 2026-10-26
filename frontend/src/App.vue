@@ -4,7 +4,7 @@
     <header class="app-header">
       <div class="brand-group">
         <div class="brand-logo">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
             <rect x="2" y="2" width="20" height="20" rx="6" fill="#f4c524" />
             <polygon points="10,7 17,12 10,17" fill="#000000" />
           </svg>
@@ -17,13 +17,13 @@
 
       <div class="header-actions">
         <span class="take-counter">{{ assets.length }} Takes</span>
-        <button class="btn-ghost" :disabled="loading" @click="fetchAll" title="Refresh takes">
+        <button class="btn-ghost" :disabled="loading" @click="fetchAll" title="Refresh takes from database">
           <svg :class="{ 'spin': loading }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <path d="M21 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
           </svg>
           <span>Refresh</span>
         </button>
-        <button class="btn-gold" @click="showUploadModal = true">
+        <button class="btn-gold" @click="openUploadModal">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <line x1="12" y1="5" x2="12" y2="19"></line>
             <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -150,11 +150,11 @@
         </div>
       </aside>
 
-      <!-- Center & Right: Hero Cinema Player & Notes -->
+      <!-- Center & Right: Real Cinema Player & Notes -->
       <section class="main-stage">
         <div v-if="selectedAsset" class="stage-content">
           
-          <!-- Cinema Player Canvas -->
+          <!-- Real Cinema Player Canvas -->
           <div class="cinema-player-card">
             <!-- Player Top Status Header -->
             <div class="player-header-bar">
@@ -163,14 +163,53 @@
                 <span class="take-ident-title">{{ selectedAsset.title }}</span>
                 <span class="take-ident-sub">{{ selectedAsset.sceneId }} • Take {{ selectedAsset.takeNumber }}</span>
               </div>
-              <div class="smpte-pill">{{ formattedCurrentTimecode }}</div>
+              <div class="header-video-source">
+                <span class="source-tag" :title="currentVideoSource">{{ currentVideoSourceLabel }}</span>
+                <button class="btn-attach-video" @click="triggerQuickLocalUpload" title="Load video from Laptop or External Drive">
+                  <span>📂 Switch Video</span>
+                </button>
+                <div class="smpte-pill">{{ formattedCurrentTimecode }}</div>
+              </div>
             </div>
 
-            <!-- Cinematic 16:9 Viewport -->
-            <div class="viewport-box" @click="togglePlay">
+            <!-- Real HTML5 Video Player Viewport -->
+            <div 
+              class="viewport-box"
+              :class="{ 'drag-over': isDraggingOver }"
+              @dragover.prevent="isDraggingOver = true"
+              @dragleave.prevent="isDraggingOver = false"
+              @drop.prevent="handleDropVideo"
+              @click="togglePlay"
+            >
+              <!-- The Real HTML5 Video Player Element -->
+              <video 
+                ref="videoPlayerRef"
+                class="html5-video-canvas"
+                :src="currentVideoSource"
+                playsinline
+                preload="metadata"
+                @timeupdate="onVideoTimeUpdate"
+                @loadedmetadata="onVideoLoadedMetadata"
+                @play="isPlaying = true"
+                @pause="isPlaying = false"
+                @ended="isPlaying = false"
+              ></video>
+
+              <!-- Drag-and-drop indicator overlay -->
+              <div v-if="isDraggingOver" class="drag-drop-overlay">
+                <div class="drag-drop-content">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="#f4c524" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <p>Drop Video File to Play Directly from Your Laptop / External Drive</p>
+                </div>
+              </div>
+
               <!-- Center Big Play Button Overlay -->
               <transition name="play-fade">
-                <div v-if="!isPlaying" class="play-overlay-btn">
+                <div v-if="!isPlaying && !isDraggingOver" class="play-overlay-btn">
                   <svg viewBox="0 0 24 24" width="28" height="28" fill="#f4c524">
                     <polygon points="8,5 19,12 8,19" />
                   </svg>
@@ -178,15 +217,29 @@
               </transition>
 
               <!-- Burned Screenplay Subtitle Floating Bar -->
-              <div class="screenplay-subtitle-capsule" :class="{ 'is-burned': selectedAsset.processedS3Url }">
+              <div 
+                v-if="selectedAsset.scriptDialogue" 
+                class="screenplay-subtitle-capsule" 
+                :class="{ 'is-burned': selectedAsset.processedS3Url }"
+                @click.stop
+              >
                 <span class="subtitle-badge">
-                  {{ selectedAsset.processedS3Url ? '⚡ SUBTITLE BURNED' : 'SCREENPLAY CUE' }}
+                  {{ selectedAsset.processedS3Url ? '⚡ SUBTITLE BURNED-IN' : 'SCREENPLAY CUE' }}
                 </span>
                 <p class="subtitle-line">
-                  "{{ selectedAsset.scriptDialogue || 'No screenplay dialogue assigned.' }}"
+                  "{{ selectedAsset.scriptDialogue }}"
                 </p>
               </div>
             </div>
+
+            <!-- Hidden File Input for Quick Local Switch -->
+            <input 
+              ref="quickFileInputRef"
+              type="file"
+              accept="video/*"
+              style="display: none;"
+              @change="handleQuickFileSelect"
+            />
 
             <!-- Player Transport & Scrubber Bar -->
             <div class="player-transport-deck">
@@ -220,7 +273,9 @@
                   type="range" 
                   min="0" 
                   :max="selectedAsset.durationSeconds || 150" 
-                  v-model.number="currentSeconds" 
+                  step="0.05"
+                  :value="currentSeconds"
+                  @input="onScrubberSeek" 
                   class="timeline-slider" 
                 />
               </div>
@@ -269,7 +324,7 @@
                 :key="note.id" 
                 class="note-bubble-card"
                 @click="jumpToTimecode(note.timestampSeconds)"
-                title="Click to jump video to this note"
+                title="Click to seek video directly to this frame"
               >
                 <div class="note-tc-pill">{{ note.timecode }}</div>
                 
@@ -291,7 +346,7 @@
               </div>
 
               <div v-if="!selectedAsset.comments || selectedAsset.comments.length === 0" class="empty-notes-prompt">
-                <p>No feedback on this take yet. Scrub the video and post a note above.</p>
+                <p>No feedback on this take yet. Play the video, pause at any frame, and post a note above.</p>
               </div>
             </div>
           </div>
@@ -306,12 +361,12 @@
             </svg>
           </div>
           <h3>Select a Take to Review</h3>
-          <p>Choose any film take from the left bin to watch the proxy, verify subtitles, and drop notes.</p>
+          <p>Choose any film take from the left bin to watch the real video stream, verify subtitles, and drop notes.</p>
         </div>
       </section>
     </main>
 
-    <!-- Modal: Add New Take -->
+    <!-- Modal: Ingest New Film Take (With Local File & Cloud Source Tabs!) -->
     <div v-if="showUploadModal" class="modal-backdrop" @click.self="showUploadModal = false">
       <div class="modal-card">
         <div class="modal-card-top">
@@ -319,7 +374,89 @@
           <button class="btn-modal-close" @click="showUploadModal = false">✕</button>
         </div>
 
+        <!-- Source Selector Tabs -->
+        <div class="modal-source-tabs">
+          <button 
+            type="button" 
+            class="source-tab" 
+            :class="{ 'active': uploadSourceType === 'LOCAL' }"
+            @click="uploadSourceType = 'LOCAL'"
+          >
+            💻 Laptop / External Drive
+          </button>
+          <button 
+            type="button" 
+            class="source-tab" 
+            :class="{ 'active': uploadSourceType === 'CLOUD' }"
+            @click="uploadSourceType = 'CLOUD'"
+          >
+            ☁️ Cloud / Google Drive / S3
+          </button>
+          <button 
+            type="button" 
+            class="source-tab" 
+            :class="{ 'active': uploadSourceType === 'SAMPLE' }"
+            @click="uploadSourceType = 'SAMPLE'"
+          >
+            🎞️ Sample Film Clips
+          </button>
+        </div>
+
         <form @submit.prevent="submitNewClip">
+          <!-- Option 1: Local Laptop / Hard Disk Video File -->
+          <div v-if="uploadSourceType === 'LOCAL'" class="upload-dropzone-box">
+            <input 
+              ref="modalFileInputRef"
+              type="file" 
+              accept="video/*" 
+              id="local-video-file-input"
+              class="hidden-file-input"
+              @change="onModalFileSelected"
+            />
+            <label for="local-video-file-input" class="dropzone-label">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#f4c524" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="4"></rect>
+                <path d="m10 9 5 3-5 3z"></path>
+              </svg>
+              <div v-if="!selectedLocalFileName" class="dropzone-text">
+                <span class="highlight-text">Click to browse or Drag & Drop</span>
+                <span class="sub-text">Any video format (.mp4, .mov, .webm, .mkv) • Any file size from Laptop or SSD</span>
+              </div>
+              <div v-else class="selected-file-info">
+                <span class="file-name">✅ Loaded: {{ selectedLocalFileName }}</span>
+                <span class="file-size">{{ selectedLocalFileSize }}</span>
+              </div>
+            </label>
+          </div>
+
+          <!-- Option 2: Cloud / Google Drive / S3 URL -->
+          <div v-else-if="uploadSourceType === 'CLOUD'" class="form-group">
+            <label>Video Stream URL (Google Drive, AWS S3, CloudFront, or Direct MP4)</label>
+            <input 
+              v-model="newClip.s3BucketUrl" 
+              type="text" 
+              placeholder="e.g. https://drive.google.com/file/d/... or https://bucket.s3.amazonaws.com/take.mp4" 
+              required
+            />
+            <p class="field-hint">Google Drive sharing links and direct video URLs stream directly into the cinema player.</p>
+          </div>
+
+          <!-- Option 3: Instant Preset Film Clips -->
+          <div v-else class="sample-presets-grid">
+            <button 
+              type="button" 
+              v-for="sample in samplePresets" 
+              :key="sample.url"
+              class="sample-preset-btn"
+              :class="{ 'active': newClip.s3BucketUrl === sample.url }"
+              @click="applySamplePreset(sample)"
+            >
+              <span class="sample-title">{{ sample.title }}</span>
+              <span class="sample-desc">{{ sample.desc }}</span>
+            </button>
+          </div>
+
+          <!-- Metadata Fields -->
           <div class="form-row">
             <div class="form-group flex-2">
               <label>Scene</label>
@@ -333,15 +470,15 @@
 
           <div class="form-group">
             <label>Title / Description</label>
-            <input v-model="newClip.title" type="text" placeholder="e.g. Rooftop Chase Master" required />
+            <input v-model="newClip.title" type="text" placeholder="e.g. Rooftop Confrontation Master" required />
           </div>
 
           <div class="form-group">
-            <label>Script Screenplay Dialogue</label>
+            <label>Script Screenplay Dialogue (for Subtitles)</label>
             <textarea 
               v-model="newClip.scriptDialogue" 
-              rows="3" 
-              placeholder='e.g. DETECTIVE: "Where were you at midnight?"'
+              rows="2" 
+              placeholder='e.g. DETECTIVE: "Where were you the night of the incident?"'
               required
             ></textarea>
           </div>
@@ -353,14 +490,14 @@
             </div>
             <div class="form-group flex-1">
               <label>Duration (Seconds)</label>
-              <input v-model.number="newClip.durationSeconds" type="number" min="5" required />
+              <input v-model.number="newClip.durationSeconds" type="number" min="1" required />
             </div>
           </div>
 
           <div class="modal-actions">
             <button type="button" class="btn-cancel" @click="showUploadModal = false">Cancel</button>
             <button type="submit" class="btn-confirm" :disabled="submitting">
-              {{ submitting ? 'Adding Take...' : 'Add Take' }}
+              {{ submitting ? 'Ingesting...' : 'Ingest & Attach Video' }}
             </button>
           </div>
         </form>
@@ -370,7 +507,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 
 const assets = ref([]);
 const selectedAsset = ref(null);
@@ -380,10 +517,61 @@ const searchQuery = ref('');
 const activeFilter = ref('ALL');
 const showUploadModal = ref(false);
 
-// Video playback
+// Video player ref and playback state
+const videoPlayerRef = ref(null);
+const quickFileInputRef = ref(null);
+const modalFileInputRef = ref(null);
 const isPlaying = ref(false);
-const currentSeconds = ref(42);
-let playInterval = null;
+const currentSeconds = ref(0);
+const isDraggingOver = ref(false);
+
+// Local memory video blob sources indexed by asset ID
+const localVideoSources = ref({});
+const localPendingBlobUrl = ref('');
+const selectedLocalFileName = ref('');
+const selectedLocalFileSize = ref('');
+
+// Ingest source tab
+const uploadSourceType = ref('LOCAL'); // 'LOCAL' | 'CLOUD' | 'SAMPLE'
+
+// Sample film presets
+const samplePresets = [
+  {
+    title: 'Tears of Steel (Sci-Fi Action)',
+    desc: '4K open-movie dialogue take with robotic VFX',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+    sceneId: 'Scene 09',
+    takeNumber: 1,
+    scriptDialogue: 'CELIA: "What happened to you? Why did you join the machine coalition?"',
+    duration: 180
+  },
+  {
+    title: 'Sintel (Dragon Hunt Confrontation)',
+    desc: 'Cinematic animated master with orchestral score',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    sceneId: 'Scene 21B',
+    takeNumber: 3,
+    scriptDialogue: 'SINTEL: "I looked across the snowy peak... and I knew he was waiting."',
+    duration: 120
+  },
+  {
+    title: 'Big Buck Bunny (Forest Master)',
+    desc: 'Daylight 60fps wide angle landscape cut',
+    url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    sceneId: 'Scene 02',
+    takeNumber: 4,
+    scriptDialogue: 'NARRATOR: "The morning broke silently across the meadow."',
+    duration: 150
+  }
+];
+
+// Fallback high-speed CDN videos for seeded assets
+const defaultCdnVideos = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+];
 
 // Inline comment
 const quickNoteText = ref('');
@@ -396,8 +584,8 @@ const newClip = ref({
   title: '',
   scriptDialogue: '',
   cameraRoll: 'Roll A-01',
-  durationSeconds: 150,
-  s3BucketUrl: 's3://collabcut-raw/take.mp4'
+  durationSeconds: 120,
+  s3BucketUrl: ''
 });
 
 // Toast notification
@@ -412,36 +600,202 @@ const formattedCurrentTimecode = computed(() => {
   const sec = currentSeconds.value || 0;
   const hrs = Math.floor(sec / 3600).toString().padStart(2, '0');
   const mins = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
-  const s = (sec % 60).toString().padStart(2, '0');
-  const frames = '12';
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
+  const frames = Math.floor((sec % 1) * 24).toString().padStart(2, '0');
   return `${hrs}:${mins}:${s}:${frames}`;
 });
 
-function togglePlay() {
-  isPlaying.value = !isPlaying.value;
-  if (isPlaying.value) {
-    playInterval = setInterval(() => {
-      const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
-      if (currentSeconds.value >= max) {
-        currentSeconds.value = 0;
-      } else {
-        currentSeconds.value++;
+// Active Video Stream Source Resolution
+const currentVideoSource = computed(() => {
+  if (!selectedAsset.value) return '';
+  const id = selectedAsset.value.id;
+  
+  // 1. Check if user attached a local video file (Blob URL)
+  if (localVideoSources.value[id]) {
+    return localVideoSources.value[id];
+  }
+
+  // 2. Check if asset's s3BucketUrl is a direct HTTP/HTTPS/Blob URL
+  const rawUrl = selectedAsset.value.s3BucketUrl || '';
+  if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('blob:')) {
+    // If Google Drive link, convert to streamable URL
+    if (rawUrl.includes('drive.google.com')) {
+      const match = rawUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        return `https://drive.google.com/uc?export=download&id=${match[1]}`;
       }
-    }, 1000);
+    }
+    return rawUrl;
+  }
+
+  // 3. Fallback to reliable sample film video by ID modulo
+  const idx = (typeof id === 'number' ? id : 1) % defaultCdnVideos.length;
+  return defaultCdnVideos[idx];
+});
+
+const currentVideoSourceLabel = computed(() => {
+  if (!selectedAsset.value) return '';
+  const id = selectedAsset.value.id;
+  if (localVideoSources.value[id]) return '💻 Local Video';
+  const raw = selectedAsset.value.s3BucketUrl || '';
+  if (raw.includes('drive.google.com')) return '☁️ Google Drive';
+  if (raw.startsWith('http')) return '🌐 Cloud Stream';
+  return '🎞️ Studio Reel';
+});
+
+// Real Video Control: Play / Pause
+function togglePlay() {
+  if (!videoPlayerRef.value) return;
+  if (videoPlayerRef.value.paused) {
+    videoPlayerRef.value.play().then(() => {
+      isPlaying.value = true;
+    }).catch(err => {
+      console.warn('Playback error:', err);
+    });
   } else {
-    clearInterval(playInterval);
+    videoPlayerRef.value.pause();
+    isPlaying.value = false;
   }
 }
 
+// Video time update event from browser HTML5 engine
+function onVideoTimeUpdate() {
+  if (!videoPlayerRef.value) return;
+  currentSeconds.value = videoPlayerRef.value.currentTime;
+}
+
+// Video metadata loaded
+function onVideoLoadedMetadata() {
+  if (!videoPlayerRef.value || !selectedAsset.value) return;
+  const dur = Math.round(videoPlayerRef.value.duration);
+  if (dur && dur > 0 && dur !== Infinity) {
+    selectedAsset.value.durationSeconds = dur;
+  }
+}
+
+// Scrubber seek
+function onScrubberSeek(e) {
+  const target = parseFloat(e.target.value);
+  currentSeconds.value = target;
+  if (videoPlayerRef.value) {
+    videoPlayerRef.value.currentTime = target;
+  }
+}
+
+// Seek video to exact second
 function jumpToTimecode(sec) {
   currentSeconds.value = sec;
-  showToast(`Jumped to ${formattedCurrentTimecode.value}`);
+  if (videoPlayerRef.value) {
+    videoPlayerRef.value.currentTime = sec;
+    if (videoPlayerRef.value.paused) {
+      videoPlayerRef.value.play().catch(() => {});
+    }
+  }
+  showToast(`Seeked video to ${formattedCurrentTimecode.value}`);
 }
 
 function calcMarkerLeft(timestampSec) {
   const max = (selectedAsset.value && selectedAsset.value.durationSeconds) || 150;
   const pct = Math.min(100, Math.max(0, (timestampSec / max) * 100));
   return `${pct}%`;
+}
+
+// Direct Drag-and-Drop video onto Cinema Viewport
+function handleDropVideo(e) {
+  isDraggingOver.value = false;
+  if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+  const file = e.dataTransfer.files[0];
+  if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|mov|webm|mkv|avi)$/i)) {
+    showToast('Please drop a valid video file (.mp4, .mov, .webm, .mkv)', 'error');
+    return;
+  }
+
+  attachLocalFileToAsset(selectedAsset.value.id, file);
+}
+
+// Quick Local Video Switch button
+function triggerQuickLocalUpload() {
+  if (quickFileInputRef.value) {
+    quickFileInputRef.value.click();
+  }
+}
+
+function handleQuickFileSelect(e) {
+  if (!e.target.files || !e.target.files.length) return;
+  const file = e.target.files[0];
+  if (selectedAsset.value) {
+    attachLocalFileToAsset(selectedAsset.value.id, file);
+  }
+}
+
+// Attach local video file to active take
+function attachLocalFileToAsset(assetId, file) {
+  const blobUrl = URL.createObjectURL(file);
+  localVideoSources.value[assetId] = blobUrl;
+  
+  // Auto-detect duration
+  const tempV = document.createElement('video');
+  tempV.preload = 'metadata';
+  tempV.src = blobUrl;
+  tempV.onloadedmetadata = () => {
+    if (selectedAsset.value && selectedAsset.value.id === assetId) {
+      selectedAsset.value.durationSeconds = Math.round(tempV.duration) || selectedAsset.value.durationSeconds;
+    }
+  };
+
+  showToast(`Loaded "${file.name}" directly from laptop!`, 'success');
+  nextTick(() => {
+    if (videoPlayerRef.value) {
+      videoPlayerRef.value.load();
+      videoPlayerRef.value.play().catch(() => {});
+    }
+  });
+}
+
+// Modal Local Video Selection
+function onModalFileSelected(e) {
+  if (!e.target.files || !e.target.files.length) return;
+  const file = e.target.files[0];
+  selectedLocalFileName.value = file.name;
+  
+  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+  selectedLocalFileSize.value = `${sizeMb} MB`;
+
+  // Auto populate title and scene if empty
+  if (!newClip.value.title) {
+    newClip.value.title = file.name.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ');
+  }
+  if (!newClip.value.sceneId) {
+    newClip.value.sceneId = 'Scene 01';
+  }
+
+  // Create local blob URL
+  localPendingBlobUrl.value = URL.createObjectURL(file);
+
+  // Read duration
+  const tempV = document.createElement('video');
+  tempV.preload = 'metadata';
+  tempV.src = localPendingBlobUrl.value;
+  tempV.onloadedmetadata = () => {
+    newClip.value.durationSeconds = Math.round(tempV.duration) || 120;
+  };
+}
+
+function applySamplePreset(sample) {
+  newClip.value.title = sample.title;
+  newClip.value.sceneId = sample.sceneId;
+  newClip.value.takeNumber = sample.takeNumber;
+  newClip.value.scriptDialogue = sample.scriptDialogue;
+  newClip.value.durationSeconds = sample.duration;
+  newClip.value.s3BucketUrl = sample.url;
+  showToast(`Loaded preset: ${sample.title}`);
+}
+
+function openUploadModal() {
+  selectedLocalFileName.value = '';
+  selectedLocalFileSize.value = '';
+  localPendingBlobUrl.value = '';
+  showUploadModal.value = true;
 }
 
 async function fetchAll() {
@@ -467,6 +821,13 @@ async function fetchAll() {
 function selectAsset(asset) {
   selectedAsset.value = asset;
   currentSeconds.value = 0;
+  isPlaying.value = false;
+  nextTick(() => {
+    if (videoPlayerRef.value) {
+      videoPlayerRef.value.currentTime = 0;
+      videoPlayerRef.value.load();
+    }
+  });
 }
 
 async function triggerBurnIn(asset) {
@@ -501,7 +862,7 @@ async function submitInlineNote() {
   try {
     const payload = {
       asset_id: selectedAsset.value.id,
-      timestamp_seconds: currentSeconds.value,
+      timestamp_seconds: Math.floor(currentSeconds.value),
       timecode: formattedCurrentTimecode.value,
       user_id: 'Director',
       department: quickDept.value,
@@ -539,22 +900,43 @@ async function deleteComment(id) {
 async function submitNewClip() {
   submitting.value = true;
   try {
+    // If user selected local file, generate s3-compatible file path for DB
+    let s3Url = newClip.value.s3BucketUrl;
+    if (uploadSourceType.value === 'LOCAL' && selectedLocalFileName.value) {
+      s3Url = `local://${selectedLocalFileName.value}`;
+    } else if (!s3Url) {
+      s3Url = samplePresets[0].url;
+    }
+
     const res = await fetch('/api/assets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...newClip.value,
-        s3BucketUrl: `s3://collabcut-raw/${newClip.value.sceneId.replace(/\s+/g, '_').toLowerCase()}_tk${newClip.value.takeNumber}.mp4`
+        s3BucketUrl: s3Url
       })
     });
 
     if (!res.ok) throw new Error(`Failed to create take`);
     const created = await res.json();
-    showToast(`Added ${created.sceneId}`, 'success');
+
+    // If local file was loaded, associate the blob URL with the newly created asset ID
+    if (localPendingBlobUrl.value) {
+      localVideoSources.value[created.id] = localPendingBlobUrl.value;
+    }
+
+    showToast(`Added ${created.sceneId} with video attached!`, 'success');
     showUploadModal.value = false;
-    newClip.value = { sceneId: '', takeNumber: 1, title: '', scriptDialogue: '', cameraRoll: 'Roll A-01', durationSeconds: 150, s3BucketUrl: '' };
+    newClip.value = { sceneId: '', takeNumber: 1, title: '', scriptDialogue: '', cameraRoll: 'Roll A-01', durationSeconds: 120, s3BucketUrl: '' };
     await fetchAll();
     selectedAsset.value = created;
+
+    nextTick(() => {
+      if (videoPlayerRef.value) {
+        videoPlayerRef.value.load();
+        videoPlayerRef.value.play().catch(() => {});
+      }
+    });
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
@@ -567,6 +949,7 @@ async function deleteAsset(id, title) {
   try {
     const res = await fetch(`/api/assets/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Delete take failed`);
+    delete localVideoSources.value[id];
     showToast(`Deleted ${title}`, 'success');
     await fetchAll();
   } catch (err) {
@@ -599,7 +982,7 @@ function formatStatus(st) {
 function formatSeconds(sec) {
   if (!sec && sec !== 0) return '00:00';
   const m = Math.floor(sec / 60).toString().padStart(2, '0');
-  const s = (sec % 60).toString().padStart(2, '0');
+  const s = Math.floor(sec % 60).toString().padStart(2, '0');
   return `${m}:${s}`;
 }
 
@@ -608,12 +991,14 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (playInterval) clearInterval(playInterval);
+  if (videoPlayerRef.value) {
+    videoPlayerRef.value.pause();
+  }
 });
 </script>
 
 <style scoped>
-/* Ultra-Sleek Modern Studio (Linear / RunwayML / Apple TV+ aesthetic) in #f4c524 and Black */
+/* Ultra-Sleek Modern Studio in #f4c524 and Black */
 
 .studio-app {
   max-width: 1440px;
@@ -1024,9 +1409,11 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
+  padding: 0.85rem 1.25rem;
   background: #0c0c0e;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .take-ident {
@@ -1058,34 +1445,101 @@ onUnmounted(() => {
   font-family: 'JetBrains Mono', monospace;
 }
 
+.header-video-source {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.source-tag {
+  font-size: 0.75rem;
+  color: #a1a1aa;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.btn-attach-video {
+  background: transparent;
+  border: 1px solid rgba(244, 197, 36, 0.3);
+  color: #f4c524;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-attach-video:hover {
+  background: rgba(244, 197, 36, 0.12);
+  border-color: #f4c524;
+}
+
 .smpte-pill {
   background: #000000;
   border: 1px solid rgba(244, 197, 36, 0.35);
   color: #f4c524;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  padding: 0.35rem 0.85rem;
+  padding: 0.25rem 0.75rem;
   border-radius: 6px;
   letter-spacing: 0.05em;
   text-shadow: 0 0 10px rgba(244, 197, 36, 0.3);
 }
 
-/* Viewport Box (16:9 Cinema Aspect) */
+/* Real HTML5 Video Viewport Box */
 .viewport-box {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  max-height: 440px;
+  max-height: 480px;
   background: #000000;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
-  padding: 2rem;
+  padding: 1.5rem;
   cursor: pointer;
-  background-image: radial-gradient(circle at center, #111114 0%, #000000 85%);
   overflow: hidden;
+}
+
+.html5-video-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000000;
+}
+
+.viewport-box.drag-over {
+  border: 2px dashed #f4c524;
+}
+
+.drag-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.drag-drop-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  color: #f4c524;
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 /* Center Play Button Overlay */
@@ -1105,6 +1559,7 @@ onUnmounted(() => {
   padding-left: 3px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 20px rgba(244, 197, 36, 0.3);
   transition: all 0.2s ease;
+  z-index: 4;
 }
 .viewport-box:hover .play-overlay-btn {
   transform: translate(-50%, -50%) scale(1.08);
@@ -1118,16 +1573,16 @@ onUnmounted(() => {
   width: 100%;
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 10px;
-  padding: 0.85rem 1.25rem;
+  padding: 0.75rem 1.25rem;
   text-align: center;
-  z-index: 2;
+  z-index: 3;
   transition: all 0.2s ease;
 }
 .screenplay-subtitle-capsule.is-burned {
   border-color: #f4c524;
-  box-shadow: 0 0 25px rgba(244, 197, 36, 0.2);
+  box-shadow: 0 0 25px rgba(244, 197, 36, 0.25);
 }
 
 .subtitle-badge {
@@ -1137,14 +1592,15 @@ onUnmounted(() => {
   font-weight: 800;
   color: #f4c524;
   letter-spacing: 0.08em;
-  margin-bottom: 0.3rem;
+  margin-bottom: 0.25rem;
 }
 
 .subtitle-line {
   font-size: 1.05rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #f4c524;
   line-height: 1.4;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
 /* Player Transport & Scrubber Deck */
@@ -1152,7 +1608,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 1.25rem;
-  padding: 1rem 1.5rem;
+  padding: 0.85rem 1.5rem;
   background: #0c0c0e;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -1442,7 +1898,7 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
-/* Modal: Clean Modern Card */
+/* Modal: Source Selector & Modern Card */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1460,16 +1916,18 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   width: 100%;
-  max-width: 500px;
+  max-width: 540px;
   padding: 1.75rem;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95), 0 0 25px rgba(244, 197, 36, 0.15);
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 .modal-card-top h3 {
   font-size: 1.2rem;
@@ -1486,6 +1944,144 @@ onUnmounted(() => {
 }
 .btn-modal-close:hover {
   color: #ffffff;
+}
+
+/* Modal Source Tabs */
+.modal-source-tabs {
+  display: flex;
+  gap: 0.5rem;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.35rem;
+  margin-bottom: 1.25rem;
+}
+
+.source-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #71717a;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  text-align: center;
+}
+.source-tab:hover {
+  color: #ffffff;
+}
+.source-tab.active {
+  background: #18181b;
+  color: #f4c524;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* Upload Dropzone Box */
+.upload-dropzone-box {
+  margin-bottom: 1.25rem;
+}
+
+.hidden-file-input {
+  display: none;
+}
+
+.dropzone-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: #000000;
+  border: 2px dashed rgba(244, 197, 36, 0.4);
+  border-radius: 10px;
+  padding: 1.75rem 1.25rem;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+}
+.dropzone-label:hover {
+  border-color: #f4c524;
+  background: rgba(244, 197, 36, 0.03);
+}
+
+.dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.highlight-text {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #ffffff;
+}
+.sub-text {
+  font-size: 0.75rem;
+  color: #71717a;
+}
+
+.selected-file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.file-name {
+  color: #f4c524;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.file-size {
+  color: #71717a;
+  font-size: 0.8rem;
+}
+
+.field-hint {
+  font-size: 0.75rem;
+  color: #71717a;
+  margin-top: 0.35rem;
+}
+
+/* Sample Presets Grid */
+.sample-presets-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+
+.sample-preset-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+.sample-preset-btn:hover {
+  background: #111114;
+  border-color: rgba(244, 197, 36, 0.3);
+}
+.sample-preset-btn.active {
+  border-color: #f4c524;
+  background: rgba(244, 197, 36, 0.08);
+}
+
+.sample-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+.sample-desc {
+  font-size: 0.75rem;
+  color: #71717a;
 }
 
 .form-row {
@@ -1526,7 +2122,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
-  margin-top: 1.75rem;
+  margin-top: 1.5rem;
 }
 
 .btn-cancel {
